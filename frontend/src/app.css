@@ -1,0 +1,64 @@
+:root {
+  font: 400 0.95rem/1.5 "Inter", "Segoe UI", sans-serif;
+  color: #182230;
+  background: #f5f7fa;
+}
+
+body { margin: 0; }
+button, input, select { font: inherit; }
+
+.app-header { border-bottom: 1px solid #dce2e9; background: #fff; }
+.header-content {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .75rem 1rem;
+  max-width: 68rem;
+  padding: .75rem 1rem;
+  margin: auto;
+}
+.header-content strong { font-size: 1rem; }
+.workspace-role { color: #566478; }
+.header-content button { margin-left: auto; }
+.header-content button, .auth-panel button {
+  cursor: pointer;
+  padding: .35rem .7rem;
+  border: 1px solid #c5cfdb;
+  border-radius: 4px;
+  color: inherit;
+  background: #fff;
+}
+.auth-panel button:disabled { cursor: default; opacity: .55; }
+.auth-panel .primary { background: #2057bd; border-color: #2057bd; color: white; }
+.auth-panel input, .auth-panel select {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: .25rem;
+  padding: .45rem .5rem;
+  border: 1px solid #c5cfdb;
+  border-radius: 4px;
+  background: #fff;
+}
+.auth-panel {
+  max-width: 24rem;
+  margin: clamp(1rem, 8vh, 5rem) auto;
+  padding: 1.25rem;
+  border: 1px solid #dce2e9;
+  border-radius: 6px;
+  background: #fff;
+}
+.directory { max-width: 68rem; padding: 0 1rem; margin: 1.5rem auto; }
+.directory h1, .auth-panel h1 { margin: 0 0 .85rem; font-size: 1.75rem; line-height: 1.2; }
+.directory-list { margin: 0; padding: 0; list-style: none; }
+.directory-list li, .directory-empty {
+  background: #fff;
+  border: 1px solid #dce2e9;
+  border-radius: 6px;
+  padding: .9rem 1rem;
+  margin-bottom: .55rem;
+}
+.directory h2 { font-size: 1.05rem; margin: 0 0 .15rem; }
+.directory-list p, .directory-empty p { color: #566478; margin: 0; }
+:is(.header-content, .auth-panel) :focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+@media (max-width: 450px) { .auth-panel { margin-inline: .75rem; } }

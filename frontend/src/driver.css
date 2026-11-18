@@ -1,0 +1,33 @@
+.driver-workspace :is(button, input, select) {
+  font: inherit;
+  border: 1px solid #cbd3dd;
+  border-radius: 4px;
+  background: #fff;
+  color: inherit;
+  padding: .36rem .55rem;
+}
+.driver-workspace button { cursor: pointer; }
+.driver-workspace button:disabled { cursor: default; opacity: .6; }
+.driver-workspace .primary { background: #2057bd; border-color: #2057bd; color: #fff; }
+.driver-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .7rem; }
+.driver-controls label { display: grid; gap: .2rem; }
+.driver-section { margin-top: 1.55rem; }
+.driver-section h2 { margin-bottom: .45rem; }
+.facility-rate { color: #566478; margin: .55rem 0; }
+.driver-feedback { color: #23593b; }
+.driver-feedback.error { color: #a02626; }
+.driver-map-scroll { overflow: auto; border: 1px solid #d3dae3; padding: .6rem; background: #eef2f6; max-height: 55vh; }
+.driver-map { --map-cell: 2.625rem; display: grid; gap: 2px; width: max-content; }
+.driver-map button { font-size: .76rem; padding: .12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.driver-map .driver-building, .driver-map .unavailable { background: #aab3bf; border: 1px solid #778391; opacity: 1; }
+.driver-map .driver-building { border-radius: 2px; }
+.driver-map button[aria-pressed="true"] { color: white; background: #2057bd; border-color: #2057bd; }
+.booking-controls { margin-top: .65rem; }
+.driver-bookings li { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.operator-bookings { margin: .9rem 0; }
+.operator-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+.operator-actions:empty { display: none; }
+.operator-edit { margin-top: .75rem; }
+.visit-receipt { margin-top: .4rem; }
+.visit-receipt summary { cursor: pointer; }
+.visit-receipt div { margin-top: .35rem; }
