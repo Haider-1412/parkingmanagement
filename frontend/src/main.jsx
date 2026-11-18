@@ -10,9 +10,9 @@ const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const auth = url && key ? createClient(url, key).auth : null;
 const views = {
-  driver: { title: "Driver", path: "/api/driver" },
-  facility_manager: { title: "Facility manager", path: "/api/facility-manager" },
-  operator: { title: "Parking operator", path: "/api/operator" },
+  driver: "Driver",
+  facility_manager: "Facility manager",
+  operator: "Parking operator",
 };
 
 async function api(path, token, signal, method = "GET", body) {
@@ -103,10 +103,8 @@ function Workspace({ token }) {
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
-      const { role } = await api("/api/me", token, controller.signal);
-      const view = views[role];
-      const data = await api(view.path, token, controller.signal);
-      setResult({ role, title: view.title, ...data });
+      const data = await api("/api/workspace", token, controller.signal);
+      setResult({ ...data, title: views[data.role] });
       setFailure("");
     }
     load().catch((error) => {

@@ -171,6 +171,12 @@ def operator(profile: CurrentProfile, db: Database):
     return {"facilities": facilities_for(db, operator_id=profile.id)}
 
 
+@app.get("/api/workspace")
+def workspace(profile: CurrentProfile, db: Database):
+    load = {"driver": driver, "facility_manager": facility_manager, "operator": operator}[profile.role]
+    return {"role": profile.role, **load(profile, db)}
+
+
 @app.get("/api/operator/bookings")
 def list_operator_bookings(
     profile: CurrentProfile, db: Database, facility_id: UUID | None = None,
