@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { localDateTime, visitTime, Receipt } from "./VisitDetails.jsx";
 import { PageHeading, WorkspaceIcon, WorkspaceShell } from "./WorkspaceShell.jsx";
+import Dropdown from "./Dropdown.jsx";
 import ParkingLoader from "./ParkingLoader.jsx";
 import { useLiveData } from "./useLiveData.js";
 import "./dashboard.css";
@@ -159,14 +160,14 @@ export default function OperatorWorkspace({ facilities, request, onSignOut }) {
     {statsError && <p className="driver-feedback error" role="alert">{statsError}</p>}
     <form key={formVersion} className="panel operator-filters" onSubmit={search}>
       <label>Booking ref / plate<input name="search" defaultValue={selectedFilters.get("search") || ""} maxLength={24} placeholder="Search by reference or plate" /></label>
-      <label>Facility<select name="facility_id" defaultValue={selectedFilters.get("facility_id") || ""}><option value="">All facilities</option>
-        {facilities.map((facility) => <option key={facility.id} value={facility.id}>{facility.name}</option>)}
-      </select></label>
+      <Dropdown label="Facility" name="facility_id" defaultValue={selectedFilters.get("facility_id") || ""}
+        options={[{ value: "", label: "All facilities" }, ...facilities.map(({ id, name }) => ({ value: id, label: name }))]} />
       <label>Booking date (PKT)<input type="date" name="day" defaultValue={selectedFilters.get("day") || ""} /></label>
-      <label>Status<select name="status" defaultValue={selectedFilters.get("status") || ""}>
-        <option value="">Active queue</option><option value="all">All statuses</option>
-        {Object.entries(statuses).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-      </select></label>
+      <Dropdown label="Status" name="status" defaultValue={selectedFilters.get("status") || ""}
+        options={[
+          { value: "", label: "Active queue" }, { value: "all", label: "All statuses" },
+          ...Object.entries(statuses).map(([value, label]) => ({ value, label })),
+        ]} />
       <div className="filter-actions">
         <button className="primary" disabled={busy}>Apply filters</button>
         <button type="button" disabled={busy} onClick={(event) => {
@@ -238,12 +239,11 @@ export default function OperatorWorkspace({ facilities, request, onSignOut }) {
           <p>Check-in opens at the scheduled arrival time.</p>}
         {booking.status === "confirmed" && <p>Check-in closes at {visitTime(checkInDeadline(booking))} PKT.</p>}
         {editing?.booking.id === booking.id && <form className="driver-controls operator-edit" onSubmit={save}>
-          <label>Space<select name="spot" defaultValue={booking.slot_id} required>
-            {editing.spots.map((spot) => <option key={spot.id} value={spot.id}>{spot.label}</option>)}
-          </select></label>
+          <Dropdown label="Space" name="spot" defaultValue={booking.slot_id}
+            options={editing.spots.map((spot) => ({ value: spot.id, label: spot.label }))} />
           <label>Arrival (PKT)<input name="arrival" type="datetime-local" defaultValue={localDateTime(booking.starts_at)} required /></label>
           <label>Departure (PKT)<input name="departure" type="datetime-local" defaultValue={localDateTime(booking.ends_at)} required /></label>
-          <button className="primary" disabled={busy}>Save changes</button>
+          <button className="primary" disabled={busy || !editing.spots.length}>Save changes</button>
           <button type="button" onClick={() => setEditing(null)}>Close</button>
         </form>}
         </dialog>}

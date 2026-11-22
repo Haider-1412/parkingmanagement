@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Dropdown from "./Dropdown.jsx";
 import DriverProfile from "./DriverProfile.jsx";
 import { Receipt, visitTime } from "./VisitDetails.jsx";
 import { PageHeading, WorkspaceIcon, WorkspaceShell } from "./WorkspaceShell.jsx";
@@ -207,10 +208,8 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
                 style: "unit", unit: "hour", maximumFractionDigits: 2,
               }).format(duration)}</dd></div>
             </dl>
-            {vehicles.length ? <label>Saved vehicle<select value={vehicleId}
-              onChange={(event) => setVehicleId(event.target.value)} disabled={busy}>
-              {vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.plate}</option>)}
-            </select></label> : <p>Add a vehicle in My vehicles to reserve a space.</p>}
+            {vehicles.length ? <Dropdown label="Saved vehicle" value={vehicleId} onChange={setVehicleId}
+              disabled={busy} options={vehicles.map((vehicle) => ({ value: vehicle.id, label: vehicle.plate }))} /> : <p>Add a vehicle in My vehicles to reserve a space.</p>}
             <div className="reservation-total"><span>Estimated total</span>
               <strong>{price.format(duration * Number(facility.hourly_rate))}</strong></div>
             <button className="primary" type="button" disabled={busy || !!resumesAt || !selectedSpot?.available || !vehicleId}
@@ -227,10 +226,8 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
               event.preventDefault();
               perform(search);
             }}>
-              <label>Parking facility<select value={facilityId} disabled={busy}
-                onChange={(event) => setFacilityId(event.target.value)}>
-                {facilities.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-              </select></label>
+              <Dropdown label="Parking facility" value={facilityId} onChange={setFacilityId} disabled={busy}
+                options={facilities.map((item) => ({ value: item.id, label: item.name }))} />
               <div className="search-rate"><span>Hourly rate</span><output>{price.format(facility.hourly_rate)} / hour</output></div>
               <label>Arrival · PKT<input type="datetime-local" value={arrival} required disabled={busy}
                 onChange={(event) => setArrival(event.target.value)} /></label>

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Dropdown from "./Dropdown.jsx";
 import ParkingLoader from "./ParkingLoader.jsx";
 import { PageHeading, WorkspaceIcon } from "./WorkspaceShell.jsx";
 import { localDateTime, visitTime } from "./VisitDetails.jsx";
@@ -34,12 +35,9 @@ export default function FacilitySales({ facilities, request, onAddFacility }) {
 
   return <section className="facility-sales">
     <PageHeading title="Facility dashboard" description="Today's recorded payments across your facilities."
-      action={<label className="dashboard-facility">Facility
-        <select value={facilityId} onChange={(event) => { setSelectedHour(null); setFacilityId(event.target.value); }}>
-          <option value="">All facilities</option>
-          {facilities.map((facility) => <option key={facility.id} value={facility.id}>{facility.name}</option>)}
-        </select>
-      </label>} />
+      action={<Dropdown label="Facility" className="dashboard-facility" value={facilityId}
+        onChange={(id) => { setSelectedHour(null); setFacilityId(id); }}
+        options={[{ value: "", label: "All facilities" }, ...facilities.map(({ id, name }) => ({ value: id, label: name }))]} />} />
     {error && <p className="driver-feedback error" role="alert">{error}</p>}
     <div className="dashboard-detail">
       <section className="panel sales-chart">

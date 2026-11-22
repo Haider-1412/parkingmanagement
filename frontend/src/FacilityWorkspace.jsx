@@ -1,3 +1,4 @@
+import Dropdown from "./Dropdown.jsx";
 import FacilitySales from "./FacilitySales.jsx";
 import React, { useEffect, useState } from "react";
 import FacilityReport from "./FacilityReport.jsx";
@@ -309,12 +310,9 @@ export default function FacilityWorkspace({ initialFacilities, request, onSignOu
             perform(() => request(path, "PUT", body), "Facility details saved.")} />
         </div>}
       </>}
-      {page !== "facilities" && (facilities.length ? <label className="manager-facility-picker">Facility
-        <select value={current?.id || ""} disabled={busy} onChange={(event) => chooseFacility(event.target.value)}>
-          <option value="">Choose a facility</option>
-          {facilities.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
-        </select>
-      </label> : <div className="panel"><p>Register a facility to use this workspace.</p>
+      {page !== "facilities" && (facilities.length ? <Dropdown label="Facility" className="manager-facility-picker"
+        value={current?.id || ""} disabled={busy} onChange={(id) => chooseFacility(id)}
+        options={[{ value: "", label: "Choose a facility" }, ...facilities.map(({ id, name }) => ({ value: id, label: name }))]} /> : <div className="panel"><p>Register a facility to use this workspace.</p>
         <button type="button" onClick={() => navigate("facilities")}>Go to facilities</button></div>)}
       </>}
       {current && <React.Fragment key={current.id}>

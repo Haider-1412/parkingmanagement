@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createClient } from "@supabase/supabase-js";
+import Dropdown from "./Dropdown.jsx";
 import ParkingLoader from "./ParkingLoader.jsx";
 import DriverWorkspace from "./DriverWorkspace.jsx";
 import { Brand } from "./WorkspaceShell.jsx";
@@ -100,10 +101,9 @@ function SignIn() {
             <button type="button" aria-label={showPassword ? "Hide password" : "Show password"}
               onClick={() => setShowPassword(!showPassword)}>{showPassword ? "Hide" : "Show"}</button>
           </div>
-          {registering && <p><label>Account type <select name="role">
-            <option value="driver">Driver</option>
-            <option value="facility_manager">Facility manager</option>
-          </select></label></p>}
+          {registering && <Dropdown label="Account type" name="role" disabled={busy} options={[
+            { value: "driver", label: "Driver" }, { value: "facility_manager", label: "Facility manager" },
+          ]} />}
           <button className="primary auth-submit" disabled={busy}>
             {busy ? "Please wait…" : registering ? "Create account" : "Sign in"}
           </button>
