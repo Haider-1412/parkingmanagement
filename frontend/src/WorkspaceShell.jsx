@@ -27,7 +27,7 @@ export function Brand() {
   </div>;
 }
 
-export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, subtitle, children }) {
+export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, transitionKey, children }) {
   const previewControls = useContext(PreviewControls);
   const content = useRef(null);
   const collapseTimer = useRef(null);
@@ -41,8 +41,6 @@ export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, subti
     collapseTimer.current = setTimeout(() => setCollapsed(true), 3000);
   }
 
-  const title = items.find(({ id }) => id === page)?.label;
-
   useEffect(() => () => clearTimeout(collapseTimer.current), []);
 
   useEffect(() => {
@@ -52,7 +50,7 @@ export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, subti
       { opacity: 1, transform: "translateY(0)" },
     ], { duration: 280, easing: "cubic-bezier(.2,.75,.25,1)" });
     return () => animation.cancel();
-  }, [page, subtitle]);
+  }, [page, transitionKey]);
 
   return <div className="workspace" data-nav-collapsed={collapsed}>
     <aside className="workspace-sidebar">
@@ -69,8 +67,8 @@ export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, subti
     <div className="workspace-body">
       <header className="app-header">
         <div className="header-content">
-          <div><div className="eyebrow">{role} workspace</div><strong>{subtitle || title}</strong></div>
-          <span className="workspace-timezone">Pakistan Standard Time · UTC+5</span>
+          <div className="eyebrow">{role} workspace</div>
+          <span className="workspace-timezone">PKT · UTC+5</span>
           {previewControls || <button type="button" onClick={onSignOut}>Sign out</button>}
         </div>
       </header>
@@ -79,9 +77,9 @@ export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, subti
   </div>;
 }
 
-export function PageHeading({ title, description, action }) {
+export function PageHeading({ title, action }) {
   return <div className="page-heading">
-    <div><h1>{title}</h1>{description && <p>{description}</p>}</div>
+    <h1>{title}</h1>
     {action}
   </div>;
 }

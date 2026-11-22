@@ -2,11 +2,14 @@ import React, { useState } from "react";
 import Dropdown from "./Dropdown.jsx";
 import ParkingLoader from "./ParkingLoader.jsx";
 import { PageHeading, WorkspaceIcon } from "./WorkspaceShell.jsx";
-import { localDateTime, visitTime } from "./VisitDetails.jsx";
+import { localDateTime } from "./VisitDetails.jsx";
 import { useLiveData } from "./useLiveData.js";
 import "./dashboard.css";
 
 const money = new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR" });
+const updateTime = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Karachi", hour: "numeric", minute: "2-digit", hour12: true,
+});
 const hourLabel = (hour) => String(hour).padStart(2, "0") + ":00";
 const saleHour = (sale) => Number(localDateTime(sale.paid_at).slice(11, 13));
 const total = (sales) => sales.reduce((sum, sale) => sum + Math.round(Number(sale.amount) * 100), 0) / 100;
@@ -28,13 +31,12 @@ export default function FacilitySales({ facilities, request, onAddFacility }) {
     <section className="panel facility-dashboard-empty">
       <span className="metric-icon"><WorkspaceIcon name="facilities" /></span>
       <h2>Add your first facility</h2>
-      <p>Once payments are recorded at a facility, they’ll appear in this dashboard.</p>
       <button className="primary" type="button" onClick={onAddFacility}>Add facility</button>
     </section>
   </section>;
 
   return <section className="facility-sales">
-    <PageHeading title="Facility dashboard" description="Today's recorded payments across your facilities."
+    <PageHeading title="Facility dashboard"
       action={<Dropdown label="Facility" className="dashboard-facility" value={facilityId}
         onChange={(id) => { setSelectedHour(null); setFacilityId(id); }}
         options={[{ value: "", label: "All facilities" }, ...facilities.map(({ id, name }) => ({ value: id, label: name }))]} />} />
@@ -65,7 +67,6 @@ export default function FacilitySales({ facilities, request, onAddFacility }) {
         <article className="panel hover-card dashboard-metric metric-feature sales-total">
           <span className="metric-icon"><WorkspaceIcon name="report" /></span>
           <h2>Sales today</h2><strong key={data ? total(sales) : "pending"}>{data ? money.format(total(sales)) : "—"}</strong>
-          {data && <p>{sales.length} recorded {sales.length === 1 ? "payment" : "payments"}</p>}
         </article>
         <section className="panel sales-list">
           <div className="sales-heading">
@@ -79,6 +80,6 @@ export default function FacilitySales({ facilities, request, onAddFacility }) {
         </section>
       </div>
     </div>
-    {data && <p className="dashboard-updated">Last updated {visitTime(data.as_of)} PKT · Refreshes every 10 seconds</p>}
+    {data?.as_of && <p className="dashboard-updated">Updated {updateTime.format(new Date(data.as_of))} PKT</p>}
   </section>;
 }

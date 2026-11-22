@@ -5,7 +5,7 @@ import { PageHeading } from "./WorkspaceShell.jsx";
 
 export default function DriverProfile({ username, access, strikes, resumesAt, busy, onSave }) {
   return <>
-    <PageHeading title="Profile" description="Manage your username and see your booking access." />
+    <PageHeading title="Profile" />
     <div className="split-rails">
       <details className="panel driver-profile-edit">
         <summary>
@@ -35,13 +35,13 @@ export default function DriverProfile({ username, access, strikes, resumesAt, bu
           {resumesAt && <p className="driver-feedback error" role="status">
             New bookings are suspended until {visitTime(resumesAt)} PKT.
           </p>}
-          {strikes.length ? <ul>
+          {strikes.length > 0 && <ul>
             {strikes.map((strike) => <li key={strike.reference}>
               <strong>{strike.reference}</strong>
               <span>Missed {visitTime(strike.issued_at)} PKT</span>
               <span>Expires {visitTime(strike.expires_at)} PKT</span>
             </li>)}
-          </ul> : <p>No active strikes.</p>}
+          </ul>}
         </> : <ParkingLoader label="Loading booking access…" />}
       </section>
     </div>

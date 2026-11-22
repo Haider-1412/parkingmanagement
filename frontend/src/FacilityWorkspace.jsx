@@ -279,12 +279,6 @@ export default function FacilityWorkspace({ initialFacilities, request, onSignOu
         navigate("facilities");
       }} /> : <>
       <PageHeading title={pages.find(({ id }) => id === page).label}
-        description={{
-          facilities: "Manage parking facilities, rates, and operating hours.",
-          layout: "Place parking spaces and buildings, edit labels, and schedule closures.",
-          operators: "Manage operator access by facility.",
-          report: "Review reservations, visits, occupancy, and collected revenue.",
-        }[page]}
         action={page === "facilities" && <button disabled={busy} className="primary"
           onClick={() => setCreating(!creating)}>{creating ? "Cancel" : "Add facility"}</button>} />
       {message && <p className="facility-feedback" role="status">{message}</p>}

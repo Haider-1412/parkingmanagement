@@ -169,7 +169,7 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
   }
 
   return <WorkspaceShell role="Driver" items={pages} page={page} onNavigate={navigate}
-    onSignOut={onSignOut} subtitle={layout ? "Find parking / Select a space" : undefined}>
+    onSignOut={onSignOut} transitionKey={Boolean(layout)}>
     <section className="driver-workspace">
       {message && <p className="driver-feedback" role="status">{message}</p>}
       {failure && <p className="driver-feedback error" role="alert">{failure}</p>}
@@ -185,7 +185,7 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
         <li aria-current={layout ? "step" : undefined}><span aria-hidden="true">2</span> Choose space</li>
       </ol>}
       {page === "find" && (layout ? <>
-        <PageHeading title="Select a parking space" description="Choose an open space and confirm your reservation."
+        <PageHeading title="Select a parking space"
           action={<button type="button" disabled={busy} onClick={resetMap}>← Edit search</button>} />
         <div className="split-rails">
           <section className="panel map-panel">
@@ -217,11 +217,10 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
           </section>
         </div>
       </> : <>
-        <PageHeading title="Find your next parking space" description="Choose a facility and time window to see available spaces." />
+        <PageHeading title="Find your next parking space" />
         {facility ? <div className="split-rails search-rails">
           <section className="panel">
             <h2>Plan your visit</h2>
-            <p className="panel-intro">Dates and times use Pakistan Standard Time (PKT).</p>
             <form className="search-form" onSubmit={(event) => {
               event.preventDefault();
               perform(search);
@@ -253,7 +252,7 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
           <p>Facilities will appear here once a manager registers them.</p></div>}
       </>)}
       {page === "vehicles" && <>
-        <PageHeading title="My vehicles" description="Save the registration plates you use to book parking." />
+        <PageHeading title="My vehicles" />
         <section className="panel vehicle-form">
           <h2>Add a vehicle</h2>
           <form className="driver-controls" onSubmit={addVehicle}>
@@ -267,7 +266,7 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
           </li>)}</ul> : <p>No vehicles saved yet.</p>}
       </>}
       {page === "bookings" && <>
-        <PageHeading title="My bookings" description="Review your reservations and open receipts after checkout." />
+        <PageHeading title="My bookings" />
         {bookings.length ? <ul className="directory-list driver-bookings">{bookings.map((booking) =>
           <li key={booking.id} className="hover-card">
             <div>

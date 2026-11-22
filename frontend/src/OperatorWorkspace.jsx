@@ -135,7 +135,7 @@ export default function OperatorWorkspace({ facilities, request, onSignOut }) {
 
   return <WorkspaceShell role="Parking operator" items={pages} page="reservations" onSignOut={onSignOut}>
     <section className="driver-workspace">
-    <PageHeading title="Reservations" description="Find scheduled visits and process arrivals and departures." />
+    <PageHeading title="Reservations" />
     <div className="dashboard-metrics operator-summary" aria-label="Live parking totals">
       <button type="button" className="panel hover-card dashboard-metric metric-filter metric-feature"
         aria-pressed={selectedStatus === "confirmed"} disabled={!stats || busy} onClick={() => filterByMetric("confirmed")}>
@@ -159,7 +159,7 @@ export default function OperatorWorkspace({ facilities, request, onSignOut }) {
     </div>
     {statsError && <p className="driver-feedback error" role="alert">{statsError}</p>}
     <form key={formVersion} className="panel operator-filters" onSubmit={search}>
-      <label>Booking ref / plate<input name="search" defaultValue={selectedFilters.get("search") || ""} maxLength={24} placeholder="Search by reference or plate" /></label>
+      <label>Booking ref / plate<input name="search" defaultValue={selectedFilters.get("search") || ""} maxLength={24} /></label>
       <Dropdown label="Facility" name="facility_id" defaultValue={selectedFilters.get("facility_id") || ""}
         options={[{ value: "", label: "All facilities" }, ...facilities.map(({ id, name }) => ({ value: id, label: name }))]} />
       <label>Booking date (PKT)<input type="date" name="day" defaultValue={selectedFilters.get("day") || ""} /></label>

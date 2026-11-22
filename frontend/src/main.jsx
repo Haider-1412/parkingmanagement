@@ -78,7 +78,6 @@ function SignIn() {
         <div className="auth-parking" aria-hidden="true">
           <span /><span /><span /><span /><span /><span />
         </div>
-        <p>Parking for drivers, facility managers, and on-site operators.</p>
       </aside>
       <section className="auth-panel">
         <div className="auth-switch" aria-label="Account action">
