@@ -3,7 +3,12 @@
   "services": {
     "frontend": {
       "root": "frontend",
-      "framework": "vite",
+      "framework": "vite"
+    },
+    "gateway": {
+      "root": "gateway",
+      "framework": "hono",
+      "entrypoint": "index.js",
       "bindings": [
         { "type": "service", "service": "backend", "format": "url", "env": "BACKEND_URL" }
       ]
@@ -17,7 +22,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": { "service": "frontend", "path": "/api/gateway" }
+      "destination": { "service": "gateway" }
     },
     {
       "source": "/(.*)",

@@ -34,9 +34,11 @@ Set the same Supabase URL and publishable key in `frontend/.env`, then run `npm.
 
 ## Vercel Services
 
-Import the repository root as one Vercel project and select **Services** as its framework. The public site serves the Vite app at `/`. Requests to `/api/*` go to a frontend function, which forwards them to the internal FastAPI service using the `BACKEND_URL` binding. Vercel injects this variable.
+Import the repository root as one Vercel project and select **Services** as its framework. The `frontend` service serves the Vite app at `/`. The `gateway` service handles public `/api/*` requests and forwards them to the internal FastAPI `backend` service using the Vercel-injected `BACKEND_URL` binding.
 
-Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` for the frontend build. Configure `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and, for operator provisioning, `SUPABASE_SECRET_KEY` in the project environment. Set the deployed site URL and allowed confirmation redirects in Supabase Auth. Apply `alembic upgrade head` from `backend` against the intended deployment database before testing sign-in.
+In Vercel's project settings under **Environment Variables**, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` for Preview or Production, according to the deployment you're opening. Use the same Supabase project as the backend. The local `frontend/.env` is ignored by Git. Vite reads the two variables during the build, so redeploy after adding or changing them.
+
+Configure `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and, for operator provisioning, `SUPABASE_SECRET_KEY` in the project environment. Keep the database URL and secret key out of variables prefixed with `VITE_`. Set the deployed site URL and allowed confirmation redirects in Supabase Auth. Apply `alembic upgrade head` from `backend` against the intended deployment database before testing sign-in.
 
 Run `vercel dev` from the repository root to test the Vercel routing locally. Use `vercel dev --local` to run without linking a cloud project. Open `/`, check that `/api/health` returns `{"status":"ok"}`, and verify that `/api/workspace` returns 401 without a session.
 

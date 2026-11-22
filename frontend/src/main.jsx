@@ -162,7 +162,11 @@ function App() {
     return () => data.subscription.unsubscribe();
   }, []);
 
-  if (!auth) return <main>Set the Supabase URL and publishable key in frontend/.env.</main>;
+  if (!auth) return <main className="directory">
+    <p role="alert">{import.meta.env.DEV
+      ? "Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in frontend/.env, then restart Vite."
+      : "Sign-in is unavailable because the frontend was built without its Supabase configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in the deployment environment, then redeploy."}</p>
+  </main>;
   if (session === undefined) return <main>Loading sessionâ€¦</main>;
   return session
     ? <Suspense fallback={<main className="directory workspace-pending"><Brand /><p role="status">Loading your workspace…</p></main>}>
