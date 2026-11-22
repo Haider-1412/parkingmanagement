@@ -18,8 +18,8 @@ export default function FacilityReport({ path, request }) {
     finally { setBusy(false); }
   }
 
-  return <details className="facility-report">
-    <summary>Facility report</summary>
+  return <section className="panel facility-report">
+    <h2>Date range</h2>
     <form className="closure-form" onSubmit={load}>
       <label>From (PKT)<input name="first" type="date" defaultValue={current} required /></label>
       <label>To (PKT)<input name="last" type="date" defaultValue={current} required /></label>
@@ -42,5 +42,5 @@ export default function FacilityReport({ path, request }) {
         </li>)}
       </ul>}
     </>}
-  </details>;
+  </section>;
 }

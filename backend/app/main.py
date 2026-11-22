@@ -7,14 +7,15 @@ import httpx
 from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from .booking import (
-    BookingWindow, ReservationInput, VehicleInput, active_slots, cancel, get_driver_bookings,
-    reservation_conflicts, reserve, unavailable_slots, within_hours,
+    BookingWindow, ReservationInput, VehicleInput, active_slots, cancel, check_in_deadline, driver_booking_access,
+    get_driver_bookings, reservation_conflicts, reserve, slot_conflicts, within_hours,
 )
 from .db import get_db
 from .facility_inputs import FacilityInput, GridCell, LayoutInput, MaintenanceInput
@@ -23,7 +24,10 @@ from .staff import (
     OperatorInput, add_facility_operator, assigned_facilities, facility_staff, require_assignment,
     require_booking_assignment,
 )
-from .visits import RescheduleInput, VisitAction, operator_bookings, report_for, reschedule, visit_action
+from .visits import (
+    RescheduleInput, VisitAction, facility_sales_today, operator_bookings, operator_dashboard,
+    report_for, reschedule, visit_action,
+)
 
 app = FastAPI(title="Parking Management")
 bearer = HTTPBearer(auto_error=False)
@@ -100,9 +104,38 @@ def facilities_for(db: Session, owner_id: UUID | None = None, operator_id: UUID 
     if operator_id is not None:
         query = query.where(Facility.id.in_(assigned_facilities(operator_id)))
     return [
-        {"id": facility.id, "name": facility.name, "address": facility.address, "hourly_rate": facility.hourly_rate}
+        {
+            "id": facility.id, "name": facility.name, "address": facility.address,
+            "hourly_rate": facility.hourly_rate, "opens_at": facility.opens_at, "closes_at": facility.closes_at,
+        }
         for facility in db.scalars(query)
     ]
+
+
+class UsernameInput(BaseModel):
+    username: Annotated[str, StringConstraints(
+        strip_whitespace=True, min_length=3, max_length=24, pattern=r"^[A-Za-z0-9_]+$",
+    )]
+
+
+@app.get("/api/driver/profile")
+def driver_profile(profile: CurrentProfile, db: Database):
+    require_role(profile, "driver")
+    return {"username": profile.username, **driver_booking_access(db, profile.id)}
+
+
+@app.put("/api/driver/profile")
+def update_driver_profile(payload: UsernameInput, profile: CurrentProfile, db: Database):
+    require_role(profile, "driver")
+    profile.username = payload.username
+    try:
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        if getattr(getattr(error.orig, "diag", None), "constraint_name", None) == "uq_profiles_username_lower":
+            raise HTTPException(409, "That username is already taken") from error
+        raise
+    return {"username": profile.username}
 
 
 @app.get("/api/driver")
@@ -113,6 +146,7 @@ def driver(profile: CurrentProfile, db: Database):
         "facilities": facilities_for(db),
         "vehicles": [{"id": vehicle.id, "plate": vehicle.plate} for vehicle in vehicles],
         "bookings": get_driver_bookings(db, profile.id),
+        "profile": driver_profile(profile, db),
     }
 
 
@@ -136,12 +170,20 @@ def check_availability(facility_id: UUID, payload: BookingWindow, profile: Curre
         raise HTTPException(404, "Facility not found")
     slots = db.scalars(select(Slot).where(Slot.facility_id == facility.id, Slot.grid_row.is_not(None))).all()
     available_hours = within_hours(facility, payload)
-    blocked = unavailable_slots(db, [slot.id for slot in slots], payload) if available_hours else set()
+    slot_ids = [slot.id for slot in slots]
+    closed, occupied, reserved = (
+        slot_conflicts(db, slot_ids, payload) if available_hours else (set(slot_ids), set(), set())
+    )
+    statuses = {
+        **dict.fromkeys(reserved, "reserved"),
+        **dict.fromkeys(occupied, "occupied"),
+        **dict.fromkeys(closed, "closed"),
+    }
     return {
         "buildings": facility.building_cells,
         "closed": not available_hours,
         "spots": [
-            {**spot_fields(slot), "available": available_hours and slot.id not in blocked}
+            {**spot_fields(slot), "available": slot.id not in statuses, "status": statuses.get(slot.id, "open")}
             for slot in slots
         ],
     }
@@ -165,6 +207,14 @@ def facility_manager(profile: CurrentProfile, db: Database):
     return {"facilities": facilities_for(db, profile.id)}
 
 
+@app.get("/api/facility-manager/sales")
+def manager_sales(profile: CurrentProfile, db: Database, facility_id: UUID | None = None):
+    require_role(profile, "facility_manager")
+    if facility_id:
+        owned_facility(db, profile, facility_id)
+    return facility_sales_today(db, profile.id, facility_id)
+
+
 @app.get("/api/operator")
 def operator(profile: CurrentProfile, db: Database):
     require_role(profile, "operator")
@@ -177,13 +227,22 @@ def workspace(profile: CurrentProfile, db: Database):
     return {"role": profile.role, **load(profile, db)}
 
 
+@app.get("/api/operator/dashboard")
+def dashboard(profile: CurrentProfile, db: Database, facility_id: UUID | None = None):
+    require_role(profile, "operator")
+    if facility_id:
+        require_assignment(db, profile.id, facility_id)
+    return operator_dashboard(db, profile.id, facility_id)
+
+
 @app.get("/api/operator/bookings")
 def list_operator_bookings(
     profile: CurrentProfile, db: Database, facility_id: UUID | None = None,
     day: date | None = None, status: str | None = None, reference: str | None = None,
+    search: str | None = None, active: bool = False,
 ):
     require_role(profile, "operator")
-    return {"bookings": operator_bookings(db, profile.id, facility_id, day, status, reference)}
+    return {"bookings": operator_bookings(db, profile.id, facility_id, day, status, reference, search, active)}
 
 
 @app.get("/api/operator/facilities/{facility_id}/spots")
@@ -313,10 +372,12 @@ def save_layout(facility_id: UUID, payload: LayoutInput, profile: CurrentProfile
     if not submitted.issubset(existing):
         raise HTTPException(409, "A saved spot has changed. Reload the layout and try again.")
 
+    now = datetime.now(timezone.utc)
     for slot_id in existing.keys() - submitted:
-        history = db.execute(select(Reservation.status, Reservation.ends_at).where(Reservation.slot_id == slot_id)).all()
-        if any(status == "checked_in" or (status == "confirmed" and end > datetime.now(timezone.utc))
-               for status, end in history):
+        history = db.execute(select(Reservation.status, Reservation.starts_at, Reservation.ends_at)
+                             .where(Reservation.slot_id == slot_id)).all()
+        if any(status == "checked_in" or (status == "confirmed" and now < check_in_deadline(start, end))
+               for status, start, end in history):
             raise HTTPException(409, "A space with an upcoming or current reservation cannot be removed")
         if history:
             existing[slot_id].grid_row = None

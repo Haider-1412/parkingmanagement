@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from pydantic import AwareDatetime, BaseModel, StringConstraints, model_validator
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 from .models import Facility, MaintenanceWindow, Reservation, Slot, Vehicle
 
@@ -47,10 +47,47 @@ def within_hours(facility, window):
     return opens <= start and end <= closes
 
 
+CHECK_IN_GRACE = timedelta(minutes=15)
+NO_SHOW_STRIKE_LIMIT = 4
+NO_SHOW_STRIKE_DURATION = timedelta(days=20)
+
+
+def check_in_deadline(starts_at, ends_at):
+    return min(starts_at + CHECK_IN_GRACE, ends_at)
+
+
+def check_in_deadline_sql():
+    return func.least(Reservation.starts_at + CHECK_IN_GRACE, Reservation.ends_at)
+
+
+def expired_confirmations(now):
+    return (Reservation.status == "confirmed") & (check_in_deadline_sql() <= now)
+
+
+def active_no_show_strikes(db, driver_id, now):
+    deadline = check_in_deadline_sql()
+    return db.execute(select(Reservation.reference, deadline).where(
+        Reservation.driver_id == driver_id,
+        Reservation.status.in_(("confirmed", "no_show")),
+        deadline > now - NO_SHOW_STRIKE_DURATION,
+        deadline <= now,
+    ).order_by(deadline, Reservation.reference)).all()
+
+
+def driver_booking_access(db, driver_id):
+    now = datetime.now(timezone.utc)
+    strikes = [
+        {"reference": reference, "issued_at": issued_at, "expires_at": issued_at + NO_SHOW_STRIKE_DURATION}
+        for reference, issued_at in active_no_show_strikes(db, driver_id, now)
+    ]
+    return {"strike_limit": NO_SHOW_STRIKE_LIMIT, "strikes": strikes}
+
+
 def reservation_conflicts(slot_ids, window):
     return select(Reservation.slot_id).where(
         Reservation.slot_id.in_(slot_ids),
         Reservation.status == "confirmed",
+        ~expired_confirmations(datetime.now(timezone.utc)),
         Reservation.starts_at < window.ends_at,
         Reservation.ends_at > window.starts_at,
     )
@@ -65,27 +102,35 @@ def active_slots(slot_ids, window):
     )
 
 
-def unavailable_slots(db, slot_ids, window, exclude_booking=None):
+def slot_conflicts(db, slot_ids, window, exclude_booking=None):
     reservations = reservation_conflicts(slot_ids, window)
     if exclude_booking is not None:
         reservations = reservations.where(Reservation.id != exclude_booking)
-    reserved = db.scalars(reservations)
-    closed = db.scalars(select(MaintenanceWindow.slot_id).where(
+    closed = set(db.scalars(select(MaintenanceWindow.slot_id).where(
         MaintenanceWindow.slot_id.in_(slot_ids),
         MaintenanceWindow.starts_at < window.ends_at,
         MaintenanceWindow.ends_at > window.starts_at,
-    ))
-    return set(reserved) | set(closed) | set(db.scalars(active_slots(slot_ids, window)))
+    )))
+    return closed, set(db.scalars(active_slots(slot_ids, window))), set(db.scalars(reservations))
+
+
+def unavailable_slots(db, slot_ids, window, exclude_booking=None):
+    closed, occupied, reserved = slot_conflicts(db, slot_ids, window, exclude_booking)
+    return closed | occupied | reserved
 
 
 def booking_details(reservation, facility, vehicle):
+    now = datetime.now(timezone.utc)
+    status = reservation.status
+    if status == "confirmed" and now >= check_in_deadline(reservation.starts_at, reservation.ends_at):
+        status = "no_show"
     return {
         "id": reservation.id,
         "reference": reservation.reference,
         "facility": facility.name,
         "spot": reservation.spot_label,
         "plate": vehicle.plate,
-        "status": reservation.status,
+        "status": status,
         "starts_at": reservation.starts_at,
         "ends_at": reservation.ends_at,
         "checked_in_at": reservation.checked_in_at,
@@ -93,7 +138,7 @@ def booking_details(reservation, facility, vehicle):
         "charge": reservation.charge,
         "visit_rate": reservation.visit_rate,
         "payment": ("completed" if reservation.paid_at else "pending") if reservation.charge is not None else None,
-        "can_cancel": reservation.status == "confirmed" and reservation.starts_at > datetime.now(timezone.utc),
+        "can_cancel": status == "confirmed" and reservation.starts_at > now,
     }
 
 
@@ -125,6 +170,8 @@ def reserve(db, driver_id, payload):
         raise HTTPException(409, "The facility is closed during part of that time")
     if unavailable_slots(db, [slot.id], payload):
         raise HTTPException(409, "That space is no longer available for this time")
+    if len(active_no_show_strikes(db, driver_id, datetime.now(timezone.utc))) >= NO_SHOW_STRIKE_LIMIT:
+        raise HTTPException(403, "Booking is suspended while you have four or more active no-show strikes")
 
     reservation = Reservation(
         driver_id=driver_id, slot_id=slot.id, vehicle_id=vehicle.id, spot_label=slot.label,

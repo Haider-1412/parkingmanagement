@@ -21,7 +21,9 @@ export function localDateTime(value) {
 export function Receipt({ booking }) {
   if (booking.charge == null) return null;
   return <details className="visit-receipt">
-    <summary>Receipt · PKR {Number(booking.charge).toFixed(2)} · {booking.payment}</summary>
+    <summary>Receipt · PKR {Number(booking.charge).toFixed(2)} · <span className={"status-badge payment-" + booking.payment}>
+      {booking.payment === "completed" ? "Paid" : "Payment pending"}
+    </span></summary>
     <div>
       <p>Booking {booking.reference} · {booking.facility} · {booking.spot}</p>
       <p>Vehicle {booking.plate} · PKR {Number(booking.visit_rate).toFixed(2)}/hour</p>

@@ -49,8 +49,8 @@ export default function FacilityOperators({ path, request }) {
     });
   }
 
-  return <details className="facility-operators">
-    <summary>Operators{operators?.length ? " (" + operators.length + ")" : ""}</summary>
+  return <section className="panel facility-operators">
+    <h2>Assigned operators</h2>
     <form className="closure-form" onSubmit={submit} autoComplete="off">
       <label>Operator email<input type="email" name="email" required maxLength={254} /></label>
       <label>Password for new account<input type="password" name="password" autoComplete="new-password"
@@ -68,5 +68,5 @@ export default function FacilityOperators({ path, request }) {
         <button type="button" disabled={busy} onClick={() => remove(operator)}>Remove access</button>
       </li>)}
     </ul>}
-  </details>;
+  </section>;
 }

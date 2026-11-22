@@ -1,20 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { lazy, Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createClient } from "@supabase/supabase-js";
-import FacilityWorkspace from "./FacilityWorkspace.jsx";
 import DriverWorkspace from "./DriverWorkspace.jsx";
-import OperatorWorkspace from "./OperatorWorkspace.jsx";
+import { Brand } from "./WorkspaceShell.jsx";
 import "./app.css";
+
+const FacilityWorkspace = lazy(() => import("./FacilityWorkspace.jsx"));
+const OperatorWorkspace = lazy(() => import("./OperatorWorkspace.jsx"));
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const auth = url && key ? createClient(url, key).auth : null;
-const views = {
-  driver: "Driver",
-  facility_manager: "Facility manager",
-  operator: "Parking operator",
-};
-
 async function api(path, token, signal, method = "GET", body) {
   const timeout = AbortSignal.timeout(20000);
   let response;
@@ -45,6 +41,7 @@ async function api(path, token, signal, method = "GET", body) {
 
 function SignIn() {
   const [registering, setRegistering] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -73,25 +70,46 @@ function SignIn() {
   }
 
   return (
-    <section className="auth-panel">
-      <h1>{registering ? "Create an account" : "Parking Management"}</h1>
-      <form onSubmit={submit}>
-        <p><label>Email <input type="email" name="email" autoComplete="email" required /></label></p>
-        <p><label>Password <input type="password" name="password"
-          autoComplete={registering ? "new-password" : "current-password"} required /></label></p>
-        {registering && <p><label>Account type <select name="role">
-          <option value="driver">Driver</option>
-          <option value="facility_manager">Facility manager</option>
-        </select></label></p>}
-        <button className="primary" disabled={busy}>{registering ? "Register" : "Sign in"}</button>
-        {" "}
-        <button type="button" disabled={busy} onClick={() => {
-          setRegistering(!registering);
-          setMessage("");
-        }}>{registering ? "Back to sign in" : "Register"}</button>
-      </form>
-      {message && <p role="status">{message}</p>}
-    </section>
+    <main className="auth-shell">
+      <aside className="auth-brand">
+        <Brand />
+        <div className="auth-parking" aria-hidden="true">
+          <span /><span /><span /><span /><span /><span />
+        </div>
+        <p>Parking for drivers, facility managers, and on-site operators.</p>
+      </aside>
+      <section className="auth-panel">
+        <div className="auth-switch" aria-label="Account action">
+          <button type="button" aria-pressed={!registering} disabled={busy} onClick={() => {
+            setRegistering(false);
+            setMessage("");
+          }}>Sign in</button>
+          <button type="button" aria-pressed={registering} disabled={busy} onClick={() => {
+            setRegistering(true);
+            setMessage("");
+          }}>Register</button>
+        </div>
+        <h1>{registering ? "Create your account" : "Sign in"}</h1>
+        <form onSubmit={submit}>
+          <p><label>Email <input type="email" name="email" autoComplete="email" required /></label></p>
+          <div className="password-field">
+            <label>Password <input type={showPassword ? "text" : "password"} name="password"
+              minLength={registering ? 8 : undefined}
+              autoComplete={registering ? "new-password" : "current-password"} required /></label>
+            <button type="button" aria-label={showPassword ? "Hide password" : "Show password"}
+              onClick={() => setShowPassword(!showPassword)}>{showPassword ? "Hide" : "Show"}</button>
+          </div>
+          {registering && <p><label>Account type <select name="role">
+            <option value="driver">Driver</option>
+            <option value="facility_manager">Facility manager</option>
+          </select></label></p>}
+          <button className="primary auth-submit" disabled={busy}>
+            {busy ? "Please wait…" : registering ? "Create account" : "Sign in"}
+          </button>
+        </form>
+        {message && <p role="status">{message}</p>}
+      </section>
+    </main>
   );
 }
 
@@ -104,7 +122,7 @@ function Workspace({ token }) {
     const controller = new AbortController();
     async function load() {
       const data = await api("/api/workspace", token, controller.signal);
-      setResult({ ...data, title: views[data.role] });
+      setResult(data);
       setFailure("");
     }
     load().catch((error) => {
@@ -113,32 +131,27 @@ function Workspace({ token }) {
     return () => controller.abort();
   }, [token, attempt]);
 
-  return (
-    <>
-      <header className="app-header">
-        <div className="header-content">
-          <strong>Parking Management</strong>
-          {result && <span className="workspace-role">{result.title}</span>}
-          <button onClick={() => auth.signOut()}>Sign out</button>
-        </div>
-      </header>
-      {failure && <div className="directory">
-        <p role="alert">{failure}</p>
-        <button type="button" onClick={() => {
-          setFailure("");
-          setAttempt((previous) => previous + 1);
-        }}>Try again</button>
-      </div>}
-      {!failure && !result && <p className="directory" role="status">Loading your workspace…</p>}
-      {!failure && result?.role === "facility_manager" && <FacilityWorkspace
-        initialFacilities={result.facilities}
-        request={(path, method, body) => api(path, token, undefined, method, body)} />}
-      {!failure && result?.role === "driver" && <DriverWorkspace data={result}
-        request={(path, method, body) => api(path, token, undefined, method, body)} />}
-      {!failure && result?.role === "operator" && <OperatorWorkspace facilities={result.facilities}
-        request={(path, method, body) => api(path, token, undefined, method, body)} />}
-    </>
-  );
+  const onSignOut = () => auth.signOut();
+  if (failure || !result) return <main className="directory workspace-pending">
+    <Brand />
+    {failure ? <>
+      <p role="alert">{failure}</p>
+      <button type="button" onClick={() => {
+        setFailure("");
+        setAttempt((previous) => previous + 1);
+      }}>Try again</button>
+    </> : <p role="status">Loading your workspace...</p>}
+    <button type="button" onClick={onSignOut}>Sign out</button>
+  </main>;
+
+  const request = (path, method, body) => api(path, token, undefined, method, body);
+  if (result.role === "facility_manager") return <FacilityWorkspace
+    initialFacilities={result.facilities} request={request} onSignOut={onSignOut} />;
+  if (result.role === "driver") return <DriverWorkspace data={result} request={request} onSignOut={onSignOut} />;
+  if (result.role === "operator") return <OperatorWorkspace
+    facilities={result.facilities} request={request} onSignOut={onSignOut} />;
+  return <main className="directory"><p role="alert">No parking workspace is assigned to your account.</p>
+    <button type="button" onClick={onSignOut}>Sign out</button></main>;
 }
 
 function App() {
@@ -150,10 +163,12 @@ function App() {
   }, []);
 
   if (!auth) return <main>Set the Supabase URL and publishable key in frontend/.env.</main>;
-  if (session === undefined) return <main>Loading session…</main>;
-  return <main>{session
-    ? <Workspace key={session.user.id} token={session.access_token} />
-    : <SignIn />}</main>;
+  if (session === undefined) return <main>Loading sessionâ€¦</main>;
+  return session
+    ? <Suspense fallback={<main className="directory workspace-pending"><Brand /><p role="status">Loading your workspace…</p></main>}>
+      <Workspace key={session.user.id} token={session.access_token} />
+    </Suspense>
+    : <SignIn />;
 }
 
 createRoot(document.getElementById("root")).render(<App />);

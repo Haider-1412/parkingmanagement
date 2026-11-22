@@ -2,7 +2,7 @@ from datetime import datetime, time
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, CheckConstraint, Computed, DateTime, ForeignKey, Numeric, String, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Computed, DateTime, ForeignKey, Index, Numeric, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -12,13 +12,16 @@ SCHEMA = "parking"
 
 class Profile(Base):
     __tablename__ = "profiles"
-    __table_args__ = (
-        CheckConstraint("role in ('driver', 'facility_manager', 'operator')"),
-        {"schema": SCHEMA},
-    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     role: Mapped[str] = mapped_column(String(24))
+    username: Mapped[str | None] = mapped_column(String(24))
+
+    __table_args__ = (
+        CheckConstraint("role in ('driver', 'facility_manager', 'operator')"),
+        Index("uq_profiles_username_lower", func.lower(username), unique=True),
+        {"schema": SCHEMA},
+    )
 
 
 class Facility(Base):

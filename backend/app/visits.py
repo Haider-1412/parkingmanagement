@@ -5,9 +5,12 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 
-from .booking import PKT, BookingWindow, booking_details, booking_query, unavailable_slots, within_hours
+from .booking import (
+    PKT, BookingWindow, booking_details, booking_query, check_in_deadline,
+    expired_confirmations, unavailable_slots, within_hours,
+)
 from .models import Facility, MaintenanceWindow, Reservation, Slot, Vehicle
 from .staff import assigned_facilities
 
@@ -18,21 +21,77 @@ class RescheduleInput(BookingWindow):
     slot_id: UUID
 
 
-def operator_bookings(db, operator_id, facility_id=None, day=None, status=None, reference=None):
+def operator_bookings(db, operator_id, facility_id=None, day=None, status=None, reference=None, search=None, active=False):
     query = booking_query().where(Facility.id.in_(assigned_facilities(operator_id)))
     if facility_id:
         query = query.where(Facility.id == facility_id)
     if day:
         start = datetime.combine(day, time.min, PKT)
         query = query.where(Reservation.starts_at < start + timedelta(days=1), Reservation.ends_at > start)
-    if status:
+    expired = expired_confirmations(datetime.now(timezone.utc))
+    if active:
+        awaiting_payment = (Reservation.status == "completed") & Reservation.paid_at.is_(None)
+        query = query.where(or_(Reservation.status.in_(("confirmed", "checked_in")), awaiting_payment), ~expired)
+    elif status == "no_show":
+        query = query.where(or_(Reservation.status == status, expired))
+    elif status == "confirmed":
+        query = query.where(Reservation.status == status, ~expired)
+    elif status:
         query = query.where(Reservation.status == status)
     if reference:
         query = query.where(Reservation.reference == reference.strip().upper())
+    if search and (term := search.strip().upper()):
+        query = query.where(or_(
+            Reservation.reference.contains(term, autoescape=True),
+            Vehicle.plate.contains(term, autoescape=True),
+        ))
     return [
         {**booking_details(booking, facility, vehicle), "facility_id": facility.id, "slot_id": booking.slot_id}
         for booking, facility, vehicle in db.execute(query.order_by(Reservation.starts_at.desc(), Reservation.id))
     ]
+
+
+def operator_dashboard(db, operator_id, facility_id=None):
+    now = datetime.now(PKT)
+    today = datetime.combine(now.date(), time.min, PKT)
+    tomorrow = today + timedelta(days=1)
+    waiting_today = (
+        (Reservation.status == "confirmed") & ~expired_confirmations(now)
+        & (Reservation.starts_at < tomorrow)
+    )
+    checked_in = Reservation.status == "checked_in"
+    paid_today = (Reservation.paid_at >= today) & (Reservation.paid_at <= now)
+    query = select(
+        func.count().filter(waiting_today),
+        func.count().filter(checked_in),
+        func.coalesce(func.sum(Reservation.charge).filter(paid_today), 0),
+    ).select_from(Reservation).join(Slot).where(
+        Slot.facility_id.in_(assigned_facilities(operator_id)),
+        or_(waiting_today, checked_in, paid_today),
+    )
+    if facility_id:
+        query = query.where(Slot.facility_id == facility_id)
+    waiting, occupied, sales_total = db.execute(query).one()
+    return {"as_of": now, "waiting": waiting, "occupied": occupied, "sales_total": str(sales_total)}
+
+
+def facility_sales_today(db, manager_id, facility_id=None):
+    now = datetime.now(PKT)
+    start = datetime.combine(now.date(), time.min, PKT)
+    query = booking_query().where(
+        Facility.owner_id == manager_id, Reservation.paid_at >= start,
+        Reservation.paid_at <= now, Reservation.charge.is_not(None),
+    )
+    if facility_id:
+        query = query.where(Facility.id == facility_id)
+    sales = [
+        {
+            "id": booking.id, "reference": booking.reference, "facility": facility.name,
+            "plate": vehicle.plate, "paid_at": booking.paid_at, "amount": str(booking.charge),
+        }
+        for booking, facility, vehicle in db.execute(query.order_by(Reservation.paid_at.desc(), Reservation.id))
+    ]
+    return {"as_of": now, "sales": sales}
 
 
 def lock_booking(db, booking_id, next_slot_id=None):
@@ -57,15 +116,18 @@ def visit_action(db, booking_id, action: VisitAction, now=None):
     slot = slots[booking.slot_id]
     facility = db.get(Facility, slot.facility_id)
     now = now or datetime.now(timezone.utc)
+    deadline = check_in_deadline(booking.starts_at, booking.ends_at)
+    if booking.status == "confirmed" and now >= deadline and action != "no-show":
+        raise HTTPException(409, "The check-in deadline passed. This booking is a no-show")
 
     if action == "cancel" and booking.status == "confirmed":
         booking.status = "cancelled"
     elif action == "no-show" and booking.status == "confirmed":
-        if now < min(booking.starts_at + timedelta(minutes=15), booking.ends_at):
+        if now < deadline:
             raise HTTPException(409, "It is too early to mark this booking as a no-show")
         booking.status = "no_show"
     elif action == "check-in" and booking.status == "confirmed":
-        if not booking.starts_at <= now < booking.ends_at:
+        if not booking.starts_at <= now < deadline:
             raise HTTPException(409, "Check-in is available during the booked time window")
         if slot.grid_row is None or db.scalar(select(Reservation.id).where(
             Reservation.slot_id == slot.id, Reservation.status == "checked_in",
@@ -103,9 +165,10 @@ def reschedule(db, booking_id, payload):
     destination = slots.get(payload.slot_id)
     if destination is None or destination.facility_id != original.facility_id or destination.grid_row is None:
         raise HTTPException(404, "Choose an active space at the same facility")
-    if booking.status != "confirmed":
+    now = datetime.now(timezone.utc)
+    if booking.status != "confirmed" or now >= check_in_deadline(booking.starts_at, booking.ends_at):
         raise HTTPException(409, "Only unused confirmed bookings can be rescheduled")
-    if payload.starts_at <= datetime.now(timezone.utc):
+    if payload.starts_at <= now:
         raise HTTPException(422, "Choose a new arrival time in the future")
     facility = db.get(Facility, original.facility_id)
     if not within_hours(facility, payload) or unavailable_slots(db, [destination.id], payload, booking.id):

@@ -1,7 +1,17 @@
+import FacilitySales from "./FacilitySales.jsx";
 import React, { useEffect, useState } from "react";
 import FacilityReport from "./FacilityReport.jsx";
 import FacilityOperators from "./FacilityOperators.jsx";
+import { PageHeading, WorkspaceIcon, WorkspaceShell } from "./WorkspaceShell.jsx";
 import "./facility.css";
+
+const pages = [
+  { id: "home", label: "Dashboard" },
+  { id: "facilities", label: "Facilities" },
+  { id: "layout", label: "Layout editor" },
+  { id: "operators", label: "Operators" },
+  { id: "report", label: "Facility report" },
+];
 
 const facilitiesPath = "/api/facility-manager/facilities";
 const emptyFacility = { name: "", address: "", hourly_rate: "", opens_at: null, closes_at: null };
@@ -90,16 +100,18 @@ function LayoutEditor({ facility, busy, onSaveLayout, onAddClosure, onRemoveClos
     setDragging({ kind, source });
   }
 
-  function removeSelected() {
-    setSpots(spots.filter((spot) => cellKey(spot) !== selected));
-    setBuildings(buildings.filter((cell) => cellKey(cell) !== selected));
+  function removeCell(key) {
+    setSpots(spots.filter((spot) => cellKey(spot) !== key));
+    setBuildings(buildings.filter((cell) => cellKey(cell) !== key));
     setDirty(true);
     setSelected(null);
   }
 
-  return <>
-    <div className="layout-shell">
-    <div className="layout-toolbar">
+  return <div className="editor-rails">
+    <div className="layout-shell panel">
+    <h2>{facility.name}</h2>
+    <div className="layout-toolbar" aria-label="Layout tools">
+      <button type="button" disabled={busy} aria-pressed={tool === null} onClick={() => setTool(null)}>Select</button>
       <button type="button" draggable={!busy} onDragStart={(event) => beginDrag(event, spotTool)}
         onDragEnd={() => setDragging(null)} aria-pressed={tool === spotTool}
         disabled={busy} onClick={() => setTool(tool === spotTool ? null : spotTool)}>
@@ -110,6 +122,8 @@ function LayoutEditor({ facility, busy, onSaveLayout, onAddClosure, onRemoveClos
         disabled={busy} onClick={() => setTool(tool === buildingTool ? null : buildingTool)}>
         <span className="swatch building-swatch" /> Building
       </button>
+      <button type="button" disabled={busy} aria-pressed={tool === "clear"}
+        onClick={() => setTool("clear")}>Clear</button>
       <button type="button" className="primary save-layout"
         disabled={!dirty || busy} onClick={() => onSaveLayout({ spots, buildings })}>Save layout</button>
     </div>
@@ -120,13 +134,15 @@ function LayoutEditor({ facility, busy, onSaveLayout, onAddClosure, onRemoveClos
           const cell = { grid_row: Math.floor(index / columns), grid_column: index % columns };
           const key = cellKey(cell);
           const tile = tiles.get(key);
-          const unavailable = tile?.kind === spotTool && (tile.cell.occupied || blocked.has(tile.cell.id));
+          const status = tile?.kind === spotTool
+            ? blocked.has(tile.cell.id) ? "Closed" : tile.cell.occupied ? "In use" : "Open"
+            : null;
           const isSelected = selected === key;
-          const name = tile?.kind === spotTool ? tile.cell.label + (tile.cell.occupied ? ", occupied" : unavailable ? ", closed" : "")
+          const name = tile?.kind === spotTool ? tile.cell.label + ", " + status
             : tile ? "Building" : "Empty cell";
           const position = " row " + (cell.grid_row + 1) + ", column " + (cell.grid_column + 1);
           return <button key={key} type="button" className={[
-            "grid-cell", tile?.kind || "", unavailable ? "unavailable" : "", isSelected ? "selected" : "",
+            "grid-cell", tile?.kind || "", status === "Closed" ? "closed" : status === "In use" ? "in-use" : "", isSelected ? "selected" : "",
           ].join(" ")}
             aria-label={name + position} title={name + position} aria-pressed={isSelected}
             draggable={Boolean(tile) && !busy}
@@ -144,16 +160,23 @@ function LayoutEditor({ facility, busy, onSaveLayout, onAddClosure, onRemoveClos
               setDragging(null);
             }}
             onClick={() => {
-              if (tile) setSelected(key);
-              else if (tool) place(tool, cell);
-              else setSelected(null);
+              if (tool === "clear") {
+                if (tile && !busy) removeCell(key);
+              } else if (tile || !tool) setSelected(key);
+              else place(tool, cell);
             }}>
-            {tile?.kind === spotTool && tile.cell.label}
+            {status ? <><strong>{tile.cell.label}</strong><small>{status}</small></>
+              : tile ? "BLDG" : "\u00b7"}
           </button>;
         })}
       </div>
     </div>
     </div>
+    <section className="panel editor-properties">
+    <h2>Cell properties</h2>
+    {selected ? <p>Row {Number(selected.split(":")[0]) + 1}, column {Number(selected.split(":")[1]) + 1}</p>
+      : <p>Select a cell to view its properties.</p>}
+    {selected && !selectedTile && <p>Empty cell</p>}
     {selectedTile && <div className="selection-tools">
       {selectedTile.kind === spotTool ? <label>Space label <input value={selectedTile.cell.label}
         maxLength={24} disabled={busy} onChange={(event) => {
@@ -161,11 +184,11 @@ function LayoutEditor({ facility, busy, onSaveLayout, onAddClosure, onRemoveClos
           setSpots(spots.map((spot) => cellKey(spot) === selected ? { ...spot, label } : spot));
           setDirty(true);
         }} /></label> : <span>Building</span>}
-      <button type="button" disabled={busy} onClick={removeSelected}>Remove</button>
+      <button type="button" disabled={busy} onClick={() => removeCell(selected)}>Remove cell</button>
     </div>}
     {selectedTile?.kind === spotTool && selectedTile.cell.id && !dirty &&
-      <details className="closures" key={selectedTile.cell.id}>
-        <summary>Maintenance closures for {selectedTile.cell.label}</summary>
+      <section className="closures" key={selectedTile.cell.id}>
+        <h3>Maintenance closures</h3>
         <form className="closure-form" onSubmit={(event) => {
           event.preventDefault();
           const form = new FormData(event.currentTarget);
@@ -182,8 +205,9 @@ function LayoutEditor({ facility, busy, onSaveLayout, onAddClosure, onRemoveClos
           <p key={window.id}>{formatTime(window.starts_at)} to {formatTime(window.ends_at)}{" "}
             <button type="button" disabled={busy} onClick={() => onRemoveClosure(window.id)}>Remove closure</button>
           </p>)}
-      </details>}
-  </>;
+      </section>}
+    </section>
+  </div>;
 }
 
 function formatTime(value) {
@@ -192,7 +216,8 @@ function formatTime(value) {
   }).format(new Date(value));
 }
 
-export default function FacilityWorkspace({ initialFacilities, request }) {
+export default function FacilityWorkspace({ initialFacilities, request, onSignOut }) {
+  const [page, setPage] = useState("home");
   const [facilities, setFacilities] = useState(initialFacilities);
   const [current, setCurrent] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -221,45 +246,88 @@ export default function FacilityWorkspace({ initialFacilities, request }) {
     }
   }
 
-  return <section className="facility-workspace">
-    {message && <p className="facility-feedback" role="status">{message}</p>}
-    {failure && <p className="facility-feedback error" role="alert">{failure}</p>}
-    {current ? <React.Fragment key={"facility:" + current.id}>
-      <button type="button" disabled={busy} onClick={() => {
-        setCurrent(null);
-        setMessage("");
-        setFailure("");
-      }}>All facilities</button>
-      <h1>{current.name}</h1>
-      <FacilityOperators path={path} request={request} />
-      <details className="facility-details">
-        <summary>Facility details</summary>
-        <FacilityForm facility={current} busy={busy} onSave={(body) =>
-          perform(() => request(path, "PUT", body), "Facility details saved.")} />
-      </details>
-      <LayoutEditor facility={current} busy={busy}
-        onSaveLayout={(body) => perform(() => request(path + "/layout", "PUT", body), "Layout saved.", true)}
-        onAddClosure={(spotId, body) => perform(() =>
-          request(path + "/spots/" + spotId + "/maintenance", "POST", body), "Closure added.")}
-        onRemoveClosure={(windowId) => perform(async () => {
-          await request(path + "/maintenance/" + windowId, "DELETE");
-          return request(path);
-        }, "Closure removed.")} />
-      <FacilityReport path={path} request={request} />
-    </React.Fragment> : <React.Fragment key="facility-list">
-      <div className="facilities-heading">
-        <h1>Facilities</h1>
-        <button disabled={busy} className="primary" onClick={() => setCreating(!creating)}>
-          {creating ? "Cancel" : "Add facility"}
-        </button>
-      </div>
-      {creating && <FacilityForm busy={busy} onSave={(body) =>
-        perform(() => request(facilitiesPath, "POST", body), "Facility registered.")} />}
-      {facilities.length > 0 && <ul className="facility-list">{facilities.map((facility) =>
-        <li key={facility.id}><button disabled={busy} onClick={() =>
-          perform(() => request(facilitiesPath + "/" + facility.id))}>{facility.name}</button>
-          <span>{facility.address}</span></li>)}</ul>}
-      {!creating && !facilities.length && <p>No facilities yet.</p>}
-    </React.Fragment>}
-  </section>;
+  function navigate(next) {
+    if (busy || next === page) return;
+    setMessage("");
+    setFailure("");
+    setPage(next);
+  }
+
+  function chooseFacility(id, next = page) {
+    if (current?.id === id) {
+      navigate(next);
+      return;
+    }
+    if (!id) {
+      setCurrent(null);
+      setFailure("");
+      setMessage("");
+      return;
+    }
+    perform(async () => {
+      const facility = await request(facilitiesPath + "/" + id);
+      setPage(next);
+      return facility;
+    }, "", true);
+  }
+
+  return <WorkspaceShell role="Facility manager" items={pages} page={page} onNavigate={navigate} onSignOut={onSignOut}>
+    <section className="facility-workspace">
+      {page === "home" ? <FacilitySales facilities={facilities} request={request} /> : <>
+      <PageHeading title={pages.find(({ id }) => id === page).label}
+        description={{
+          facilities: "Manage parking facilities, rates, and operating hours.",
+          layout: "Place parking spaces and buildings, edit labels, and schedule closures.",
+          operators: "Manage operator access by facility.",
+          report: "Review reservations, visits, occupancy, and collected revenue.",
+        }[page]}
+        action={page === "facilities" && <button disabled={busy} className="primary"
+          onClick={() => setCreating(!creating)}>{creating ? "Cancel" : "Add facility"}</button>} />
+      {message && <p className="facility-feedback" role="status">{message}</p>}
+      {failure && <p className="facility-feedback error" role="alert">{failure}</p>}
+      {page === "facilities" && <>
+        {creating && <div className="panel"><h2>Register facility</h2><FacilityForm busy={busy} onSave={(body) =>
+          perform(() => request(facilitiesPath, "POST", body), "Facility registered.")} /></div>}
+        {facilities.length > 0 && <ul className="directory-list manager-facilities">{facilities.map((facility) =>
+          <li key={facility.id} className="hover-card">
+            <div className="facility-identity">
+              <span><WorkspaceIcon name="facilities" /></span>
+              <div><strong>{facility.name}</strong><p>{facility.address}</p></div>
+            </div>
+            <div className="facility-actions"><strong>PKR {facility.hourly_rate}/hr</strong>
+              <button type="button" disabled={busy} onClick={() => chooseFacility(facility.id)}>Edit details</button>
+              <button type="button" disabled={busy} onClick={() => chooseFacility(facility.id, "layout")}>Layout</button>
+            </div>
+          </li>)}</ul>}
+        {!creating && !facilities.length && <p>No facilities yet.</p>}
+        {current && !creating && <div className="panel">
+          <h2>{current.name}</h2>
+          <FacilityForm key={current.id} facility={current} busy={busy} onSave={(body) =>
+            perform(() => request(path, "PUT", body), "Facility details saved.")} />
+        </div>}
+      </>}
+      {page !== "facilities" && (facilities.length ? <label className="manager-facility-picker">Facility
+        <select value={current?.id || ""} disabled={busy} onChange={(event) => chooseFacility(event.target.value)}>
+          <option value="">Choose a facility</option>
+          {facilities.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+        </select>
+      </label> : <div className="panel"><p>Register a facility to use this workspace.</p>
+        <button type="button" onClick={() => navigate("facilities")}>Go to facilities</button></div>)}
+      </>}
+      {current && <React.Fragment key={current.id}>
+        <div hidden={page !== "layout"}>
+          <LayoutEditor facility={current} busy={busy}
+            onSaveLayout={(body) => perform(() => request(path + "/layout", "PUT", body), "Layout saved.", true)}
+            onAddClosure={(spotId, body) => perform(() =>
+              request(path + "/spots/" + spotId + "/maintenance", "POST", body), "Closure added.")}
+            onRemoveClosure={(windowId) => perform(async () => {
+              await request(path + "/maintenance/" + windowId, "DELETE");
+              return request(path);
+            }, "Closure removed.")} />
+        </div>
+        {page === "operators" && <FacilityOperators path={path} request={request} />}
+        {page === "report" && <FacilityReport path={path} request={request} />}
+      </React.Fragment>}
+    </section>
+  </WorkspaceShell>;
 }
