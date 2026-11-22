@@ -1,6 +1,7 @@
-import React, { lazy, Suspense, useEffect, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createClient } from "@supabase/supabase-js";
+import ParkingLoader from "./ParkingLoader.jsx";
 import DriverWorkspace from "./DriverWorkspace.jsx";
 import { Brand } from "./WorkspaceShell.jsx";
 import "./app.css";
@@ -132,19 +133,22 @@ function Workspace({ token }) {
   }, [token, attempt]);
 
   const onSignOut = () => auth.signOut();
-  if (failure || !result) return <main className="directory workspace-pending">
-    <Brand />
-    {failure ? <>
+  const request = useCallback((path, method, body) => api(path, token, undefined, method, body), [token]);
+  if (failure) return <main className="workspace-error">
+    <section className="panel">
+      <Brand />
       <p role="alert">{failure}</p>
-      <button type="button" onClick={() => {
-        setFailure("");
-        setAttempt((previous) => previous + 1);
-      }}>Try again</button>
-    </> : <p role="status">Loading your workspace...</p>}
-    <button type="button" onClick={onSignOut}>Sign out</button>
+      <div>
+        <button type="button" className="primary" onClick={() => {
+          setFailure("");
+          setAttempt((previous) => previous + 1);
+        }}>Try again</button>
+        <button type="button" onClick={onSignOut}>Sign out</button>
+      </div>
+    </section>
   </main>;
+  if (!result) return <ParkingLoader fullPage />;
 
-  const request = (path, method, body) => api(path, token, undefined, method, body);
   if (result.role === "facility_manager") return <FacilityWorkspace
     initialFacilities={result.facilities} request={request} onSignOut={onSignOut} />;
   if (result.role === "driver") return <DriverWorkspace data={result} request={request} onSignOut={onSignOut} />;
@@ -167,9 +171,9 @@ function App() {
       ? "Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in frontend/.env, then restart Vite."
       : "Sign-in is unavailable because the frontend was built without its Supabase configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in the deployment environment, then redeploy."}</p>
   </main>;
-  if (session === undefined) return <main>Loading sessionâ€¦</main>;
+  if (session === undefined) return <ParkingLoader fullPage label="Checking your session…" />;
   return session
-    ? <Suspense fallback={<main className="directory workspace-pending"><Brand /><p role="status">Loading your workspace…</p></main>}>
+    ? <Suspense fallback={<ParkingLoader fullPage />}>
       <Workspace key={session.user.id} token={session.access_token} />
     </Suspense>
     : <SignIn />;

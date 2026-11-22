@@ -167,7 +167,7 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
     });
   }
 
-  return <WorkspaceShell role="Driver" className="driver-theme" items={pages} page={page} onNavigate={navigate}
+  return <WorkspaceShell role="Driver" items={pages} page={page} onNavigate={navigate}
     onSignOut={onSignOut} subtitle={layout ? "Find parking / Select a space" : undefined}>
     <section className="driver-workspace">
       {message && <p className="driver-feedback" role="status">{message}</p>}

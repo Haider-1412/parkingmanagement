@@ -1,4 +1,5 @@
 import React from "react";
+import ParkingLoader from "./ParkingLoader.jsx";
 import { visitTime } from "./VisitDetails.jsx";
 import { PageHeading } from "./WorkspaceShell.jsx";
 
@@ -41,7 +42,7 @@ export default function DriverProfile({ username, access, strikes, resumesAt, bu
               <span>Expires {visitTime(strike.expires_at)} PKT</span>
             </li>)}
           </ul> : <p>No active strikes.</p>}
-        </> : <p role="status">Loading booking access…</p>}
+        </> : <ParkingLoader label="Loading booking access…" />}
       </section>
     </div>
   </>;

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { localDateTime, visitTime, Receipt } from "./VisitDetails.jsx";
 import { PageHeading, WorkspaceIcon, WorkspaceShell } from "./WorkspaceShell.jsx";
+import ParkingLoader from "./ParkingLoader.jsx";
 import { useLiveData } from "./useLiveData.js";
 import "./dashboard.css";
 import { checkInDeadline, effectiveStatus, queueDeadline } from "./operatorQueue.js";
@@ -182,7 +183,7 @@ export default function OperatorWorkspace({ facilities, request, onSignOut }) {
     {notice && <p className="driver-feedback" role="status">{notice}</p>}
     {error && <p className="driver-feedback error" role="alert">{error}</p>}
     {queueError && <p className="driver-feedback error" role="alert">{queueError}</p>}
-    {!bookings && !queueError && <p role="status">Loading reservations…</p>}
+    {!bookings && !queueError && <div className="panel operator-results"><ParkingLoader label="Loading reservations…" /></div>}
     {bookings && !visibleBookings.length && <p>{facilities.length
       ? "No matching reservations." : "No facilities assigned. Ask your facility manager to add you."}</p>}
     {!!visibleBookings.length && <div className="panel operator-results">

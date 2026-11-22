@@ -273,7 +273,10 @@ export default function FacilityWorkspace({ initialFacilities, request, onSignOu
 
   return <WorkspaceShell role="Facility manager" items={pages} page={page} onNavigate={navigate} onSignOut={onSignOut}>
     <section className="facility-workspace">
-      {page === "home" ? <FacilitySales facilities={facilities} request={request} /> : <>
+      {page === "home" ? <FacilitySales facilities={facilities} request={request} onAddFacility={() => {
+        setCreating(true);
+        navigate("facilities");
+      }} /> : <>
       <PageHeading title={pages.find(({ id }) => id === page).label}
         description={{
           facilities: "Manage parking facilities, rates, and operating hours.",

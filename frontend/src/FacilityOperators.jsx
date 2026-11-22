@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import ParkingLoader from "./ParkingLoader.jsx";
 
 export default function FacilityOperators({ path, request }) {
   const [operators, setOperators] = useState(null);
@@ -60,7 +61,7 @@ export default function FacilityOperators({ path, request }) {
     <p className="operator-help">For an operator you already created, enter their email and leave the password blank.</p>
     {notice && <p className="facility-feedback" role="status">{notice}</p>}
     {error && <p className="facility-feedback error" role="alert">{error}</p>}
-    {operators === null && !error && <p role="status">Loading operators…</p>}
+    {operators === null && !error && <ParkingLoader label="Loading operators…" />}
     {operators?.length === 0 && <p>No operators assigned.</p>}
     {operators?.length > 0 && <ul className="facility-list">
       {operators.map((operator) => <li key={operator.id}>

@@ -11,15 +11,15 @@
 .manager-facility-picker { max-width: 22rem; margin-bottom: 1rem; }
 .layout-toolbar { margin-block: .85rem; }
 .layout-toolbar [draggable="true"] { cursor: grab; }
-.layout-toolbar [aria-pressed="true"] { border-color: #a5c2b3; background: #e7efea; color: var(--green); }
+.layout-toolbar [aria-pressed="true"] { border-color: #a87930; background: var(--ochre-light); color: var(--ink); }
 .save-layout { margin-left: auto; }
 .swatch { display: inline-block; width: .75rem; height: .75rem; margin-right: .2rem; vertical-align: -.08rem; border-radius: .2rem; }
 .parking-swatch { border: 1px solid var(--open-border); background: var(--open-bg); }
-.building-swatch { background: #6b7771; }
+.building-swatch { background: #505e70; }
 .layout-grid { display: grid; gap: .38rem; width: max-content; }
 .facility-workspace .grid-cell {
   height: var(--cell-size);
-  border: 1px dashed #cdd9d0;
+  border: 1px dashed #c5b9a9;
   background: var(--surface);
   color: var(--muted);
 }
@@ -39,12 +39,11 @@
 .report-totals dd { margin: 0; font-size: 1.2rem; font-weight: 700; }
 .report-chart { list-style: none; padding: 0; max-width: 30rem; }
 .report-chart li { display: grid; grid-template-columns: 7rem 1fr 2rem; gap: .5rem; align-items: center; }
-.report-chart meter { width: 100%; accent-color: var(--green); }
+.report-chart meter { width: 100%; accent-color: var(--ink); }
 .facility-identity { display: flex; align-items: center; gap: .8rem; min-width: 0; }
-.facility-identity > span { display: grid; place-items: center; flex: none; width: 2.55rem; height: 2.55rem; border-radius: .8rem; color: var(--green); background: #e0f3e9; }
+.facility-identity > span { display: grid; place-items: center; flex: none; width: 2.55rem; height: 2.55rem; border-radius: .8rem; color: var(--ink); background: var(--ochre-light); }
 .layout-toolbar { padding: .45rem; border: 1px solid var(--line); border-radius: .9rem; background: var(--surface); }
-.layout-toolbar [aria-pressed="true"] { background: #d9f0e6; color: #0f5c50; }
-.editor-properties { border-top: 3px solid #3f9e86; }
+.editor-properties { border-top: 3px solid var(--ochre); }
 @media (max-width: 520px) {
   .manager-facilities li { padding-block: .85rem; }
   .facility-actions { width: 100%; }

@@ -27,7 +27,7 @@ export function Brand() {
   </div>;
 }
 
-export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, subtitle, className = "", children }) {
+export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, subtitle, children }) {
   const previewControls = useContext(PreviewControls);
   const content = useRef(null);
   const collapseTimer = useRef(null);
@@ -54,7 +54,7 @@ export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, subti
     return () => animation.cancel();
   }, [page, subtitle]);
 
-  return <div className={`workspace ${className}`.trim()} data-nav-collapsed={collapsed}>
+  return <div className="workspace" data-nav-collapsed={collapsed}>
     <aside className="workspace-sidebar">
       <Brand />
       <nav aria-label={role + " navigation"} className="workspace-nav">

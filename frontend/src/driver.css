@@ -141,7 +141,7 @@
   border-radius: 1rem;
   background: var(--panel);
   color: var(--ink);
-  box-shadow: var(--shadow);
+  box-shadow: 0 .55rem 1.45rem #202c3d26;
 }
 .operator-processing::backdrop { background: #18292366; }
 .dialog-heading { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
@@ -228,5 +228,5 @@
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .facility-feature:hover .facility-banner::before { transform: rotate(-16deg) translateX(-.28rem); }
   .driver-map .space-cell:hover:not(:disabled), .facility-workspace .grid-cell:hover:not(:disabled) { translate: 0 -.15rem; }
-  .operator-row:hover { background: #edf7f2; }
+  .operator-row:hover { background: #eee8db; }
 }
