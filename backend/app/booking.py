@@ -156,20 +156,28 @@ def get_driver_bookings(db, driver_id):
 
 
 def reserve(db, driver_id, payload):
-    vehicle = db.scalar(select(Vehicle).where(Vehicle.id == payload.vehicle_id, Vehicle.owner_id == driver_id))
+    vehicle = db.scalar(select(Vehicle).where(
+        Vehicle.id == payload.vehicle_id, Vehicle.owner_id == driver_id, Vehicle.removed_at.is_(None),
+    ).with_for_update())
     if vehicle is None:
         raise HTTPException(404, "Vehicle not found")
     slot = db.scalar(select(Slot).where(Slot.id == payload.slot_id).with_for_update())
     if slot is None or slot.grid_row is None:
-        raise HTTPException(404, "Parking space not found")
+        raise HTTPException(404, {"code": "space_unavailable", "message": "Parking space not found"})
 
     facility = db.get(Facility, slot.facility_id)
     if payload.starts_at <= datetime.now(timezone.utc):
         raise HTTPException(422, "Choose an arrival time in the future")
     if not within_hours(facility, payload):
         raise HTTPException(409, "The facility is closed during part of that time")
-    if unavailable_slots(db, [slot.id], payload):
-        raise HTTPException(409, "That space is no longer available for this time")
+    closed, occupied, reserved = slot_conflicts(db, [slot.id], payload)
+    if occupied or reserved:
+        raise HTTPException(409, {
+            "code": "space_taken",
+            "message": "Booking not confirmed. This space was just taken. Choose another space.",
+        })
+    if closed:
+        raise HTTPException(409, {"code": "space_unavailable", "message": "That space is closed for this time."})
     if len(active_no_show_strikes(db, driver_id, datetime.now(timezone.utc))) >= NO_SHOW_STRIKE_LIMIT:
         raise HTTPException(403, "Booking is suspended while you have four or more active no-show strikes")
 

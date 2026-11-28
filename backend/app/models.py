@@ -92,6 +92,7 @@ class Vehicle(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     owner_id: Mapped[UUID] = mapped_column(ForeignKey("parking.profiles.id"))
     plate: Mapped[str] = mapped_column(String(24))
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Reservation(Base):

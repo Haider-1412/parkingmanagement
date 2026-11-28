@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Dropdown from "./Dropdown.jsx";
 import DriverProfile from "./DriverProfile.jsx";
 import { Receipt, visitTime } from "./VisitDetails.jsx";
@@ -8,6 +8,7 @@ import "./driver.css";
 import "./driver-theme.css";
 
 const api = "/api/driver";
+const mobileViewport = () => window.matchMedia("(max-width: 800px)").matches;
 const pages = [
   { id: "find", label: "Find parking" },
   { id: "vehicles", label: "My vehicles" },
@@ -66,7 +67,18 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
   const [selected, setSelected] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [failure, setFailure] = useState("");
+  const [failure, setFailure] = useState(null);
+  const [popup, setPopup] = useState(null);
+  const [confirmed, setConfirmed] = useState(null);
+  const pending = useRef(false);
+  const dialog = useRef(null);
+  const arrivalField = useRef(null);
+  const departureField = useRef(null);
+  const reservationHeading = useRef(null);
+  const reservationError = useRef(null);
+  const confirmationHeading = useRef(null);
+  const bookingsHeading = useRef(null);
+  const focusBookings = useRef(false);
   const [savedUsername, setSavedUsername] = useState(null);
   const [now, setNow] = useState(Date.now);
   const { data: latestProfile, error: profileError } = useLiveData(
@@ -76,10 +88,27 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
   const strikes = access?.strikes.filter((strike) => Date.parse(strike.expires_at) > now) || [];
   const nextExpiry = strikes[0]?.expires_at;
   const resumesAt = strikes[strikes.length - access?.strike_limit]?.expires_at;
-  const window = { starts_at: arrival + ":00+05:00", ends_at: departure + ":00+05:00" };
+  const visit = { starts_at: arrival + ":00+05:00", ends_at: departure + ":00+05:00" };
   const facility = facilities.find((item) => item.id === facilityId);
   const selectedSpot = layout?.spots.find((spot) => spot.id === selected);
-  const duration = (Date.parse(window.ends_at) - Date.parse(window.starts_at)) / 3600000;
+  const duration = (Date.parse(visit.ends_at) - Date.parse(visit.starts_at)) / 3600000;
+  const estimate = facility && price.format(duration * Number(facility.hourly_rate));
+
+  useEffect(() => {
+    if (popup) {
+      if (!dialog.current.open) dialog.current.showModal();
+      return;
+    }
+    if (busy) return;
+    if (confirmed) confirmationHeading.current?.focus();
+    if (page === "bookings" && focusBookings.current) {
+      bookingsHeading.current?.focus();
+      focusBookings.current = false;
+    }
+    if (failure?.target === "arrival") arrivalField.current?.focus();
+    if (failure?.target === "departure") departureField.current?.focus();
+    if (failure?.target === "reservation") reservationError.current?.focus();
+  }, [busy, confirmed, failure, page, popup]);
 
   useEffect(() => {
     if (!nextExpiry) return;
@@ -91,7 +120,8 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
   function resetMap() {
     setLayout(null);
     setSelected(null);
-    setFailure("");
+    setFailure(null);
+    setConfirmed(null);
   }
 
   function navigate(next) {
@@ -101,25 +131,39 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
     setPage(next);
   }
 
-  async function perform(action) {
+  function showFailure(text, target) {
+    const mobile = mobileViewport();
+    setFailure({ text, target, mobile });
+    if (mobile) setPopup({ text });
+  }
+
+  async function perform(action, target) {
+    if (pending.current) return;
+    pending.current = true;
     setBusy(true);
     setMessage("");
-    setFailure("");
+    setFailure(null);
     try {
       await action();
     } catch (error) {
-      setFailure(error.message);
+      showFailure(error.message, target);
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   }
 
   async function search() {
-    if (!(duration > 0)) throw new Error("Departure must be later than arrival.");
-    if (Date.parse(window.starts_at) < Date.now()) throw new Error("Choose an arrival time in the future.");
-    const result = await request(api + "/facilities/" + facilityId + "/availability", "POST", window);
+    const result = await request(api + "/facilities/" + facilityId + "/availability", "POST", visit);
     setLayout(result);
     setSelected(null);
+  }
+
+  function submitSearch(event) {
+    event.preventDefault();
+    if (!(duration > 0)) return showFailure("Departure must be later than arrival.", "departure");
+    if (Date.parse(visit.starts_at) <= Date.now()) return showFailure("Choose an arrival time in the future.", "arrival");
+    perform(search, "search");
   }
 
   function addVehicle(event) {
@@ -135,21 +179,53 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
     });
   }
 
+  function deleteVehicle(vehicle) {
+    perform(async () => {
+      await request(api + "/vehicles/" + vehicle.id, "DELETE");
+      const remaining = vehicles.filter((item) => item.id !== vehicle.id);
+      setVehicles(remaining);
+      if (vehicleId === vehicle.id) setVehicleId(remaining[0]?.id || "");
+      setMessage("Vehicle " + vehicle.plate + " deleted.");
+    });
+  }
+
   function book() {
+    if (confirmed || !selectedSpot?.available || !vehicleId || resumesAt) return;
     perform(async () => {
       try {
         const booking = await request(api + "/bookings", "POST", {
-          ...window, slot_id: selected, vehicle_id: vehicleId,
+          ...visit, slot_id: selected, vehicle_id: vehicleId,
         });
         setBookings((previous) => [booking, ...previous]);
-        setMessage("Booking confirmed. Reference " + booking.reference + ".");
-        resetMap();
-        setPage("bookings");
+        setConfirmed(booking);
+        if (mobileViewport()) setPopup({ booking });
       } catch (error) {
-        if (error.status === 409 || error.status === 404) await search().catch(resetMap);
+        if (error.code === "space_taken" || error.code === "space_unavailable" || error.status === 409) {
+          setSelected(null);
+          const status = error.code === "space_taken" ? "reserved" : "unavailable";
+          setLayout((previous) => ({ ...previous, spots: previous.spots.map((spot) =>
+            spot.id === selected ? { ...spot, available: false, status } : spot) }));
+          showFailure(error.message, "reservation");
+          await search().catch(() => {});
+          return;
+        }
         throw error;
       }
-    });
+    }, "reservation");
+  }
+
+  function viewBooking() {
+    focusBookings.current = true;
+    setConfirmed(null);
+    setLayout(null);
+    setSelected(null);
+    setPage("bookings");
+  }
+
+  function closePopup() {
+    dialog.current.close();
+    setPopup(null);
+    if (popup.booking) viewBooking();
   }
 
   function cancel(booking) {
@@ -168,11 +244,30 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
     });
   }
 
+  const showReview = page === "find" && selectedSpot?.available && !confirmed;
   return <WorkspaceShell role="Driver" items={pages} page={page} onNavigate={navigate}
-    onSignOut={onSignOut} transitionKey={Boolean(layout)}>
-    <section className="driver-workspace">
+    onSignOut={onSignOut} transitionKey={Boolean(layout)} floatingAction={showReview &&
+      <div className="mobile-reservation-action">
+        <div><strong>Space {selectedSpot.label}</strong><span>{estimate} estimated</span></div>
+        <button type="button" className="primary" disabled={busy}
+          onClick={() => {
+            reservationHeading.current?.focus({ preventScroll: true });
+            reservationHeading.current?.scrollIntoView({ block: "start" });
+          }}>Review reservation</button>
+      </div>}>
+    <section className={"driver-workspace" + (showReview ? " has-reservation-action" : "")}>
+      {popup && <dialog className={"driver-popup" + (popup.booking ? "" : " error")} ref={dialog}
+        aria-labelledby="driver-popup-title" aria-describedby="driver-popup-detail"
+        onCancel={(event) => { event.preventDefault(); closePopup(); }}>
+        <span className="driver-popup-icon" aria-hidden="true">{popup.booking ? "✓" : "!"}</span>
+        <h2 id="driver-popup-title">{popup.booking ? "Booking confirmed" : "Action needed"}</h2>
+        <p id="driver-popup-detail">{popup.booking ? "Booking reference " + popup.booking.reference : popup.text}</p>
+        <button type="button" className="primary" onClick={closePopup}>
+          {popup.booking ? "View booking" : "OK"}
+        </button>
+      </dialog>}
       {message && <p className="driver-feedback" role="status">{message}</p>}
-      {failure && <p className="driver-feedback error" role="alert">{failure}</p>}
+      {failure && !failure.target && !failure.mobile && <p className="driver-feedback error" role="alert">{failure.text}</p>}
       {page === "find" && resumesAt && <div className="driver-feedback error suspension-notice" role="status">
         <p>New bookings are suspended until {visitTime(resumesAt)} PKT.</p>
         <button type="button" disabled={busy} onClick={() => navigate("profile")}>View strikes</button>
@@ -195,15 +290,22 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
             {layout.closed ? <p role="status">This facility is closed during part of the selected time.</p>
               : !layout.spots.some((spot) => spot.available) && <p role="status">No spaces are available for this time.</p>}
             {!!(layout.spots.length || layout.buildings.length) &&
-              <AvailabilityMap layout={layout} selected={selected} onSelect={setSelected} busy={busy} />}
+              <AvailabilityMap layout={layout} selected={selected} onSelect={(id) => {
+                setSelected(id);
+                setFailure(null);
+              }} busy={busy || !!confirmed} />}
           </section>
-          <section className="panel reservation-panel">
-            <h2>Your reservation</h2>
+          <section className="panel reservation-panel">{confirmed ? <>
+            <h2 ref={confirmationHeading} tabIndex={-1}>Booking confirmed</h2>
+            <p className="booking-reference">Booking reference <strong>{confirmed.reference}</strong></p>
+            <button className="primary" type="button" onClick={viewBooking}>View booking</button>
+          </> : <>
+            <h2 ref={reservationHeading} tabIndex={-1}>Your reservation</h2>
             <dl className="summary-box">
               <div><dt>Facility</dt><dd>{facility.name}</dd></div>
               <div><dt>Parking space</dt><dd aria-live="polite">{selectedSpot ? <span className="selected-space-token" key={selectedSpot.id}>{selectedSpot.label}</span> : "Select a space"}</dd></div>
-              <div><dt>Arrival</dt><dd>{visitTime(window.starts_at)} PKT</dd></div>
-              <div><dt>Departure</dt><dd>{visitTime(window.ends_at)} PKT</dd></div>
+              <div><dt>Arrival</dt><dd>{visitTime(visit.starts_at)} PKT</dd></div>
+              <div><dt>Departure</dt><dd>{visitTime(visit.ends_at)} PKT</dd></div>
               <div><dt>Duration</dt><dd>{new Intl.NumberFormat("en-PK", {
                 style: "unit", unit: "hour", maximumFractionDigits: 2,
               }).format(duration)}</dd></div>
@@ -211,27 +313,36 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
             {vehicles.length ? <Dropdown label="Saved vehicle" value={vehicleId} onChange={setVehicleId}
               disabled={busy} options={vehicles.map((vehicle) => ({ value: vehicle.id, label: vehicle.plate }))} /> : <p>Add a vehicle in My vehicles to reserve a space.</p>}
             <div className="reservation-total"><span>Estimated total</span>
-              <strong>{price.format(duration * Number(facility.hourly_rate))}</strong></div>
+              <strong>{estimate}</strong></div>
+            {failure?.target === "reservation" && <p className="driver-feedback error" ref={reservationError}
+              tabIndex={-1}>{failure.text}</p>}
             <button className="primary" type="button" disabled={busy || !!resumesAt || !selectedSpot?.available || !vehicleId}
               onClick={book}>{busy ? "Confirming…" : "Confirm reservation →"}</button>
-          </section>
+          </>}</section>
         </div>
       </> : <>
         <PageHeading title="Find your next parking space" />
         {facility ? <div className="split-rails search-rails">
           <section className="panel">
             <h2>Plan your visit</h2>
-            <form className="search-form" onSubmit={(event) => {
-              event.preventDefault();
-              perform(search);
-            }}>
+            <form className="search-form" onSubmit={submitSearch} onChange={() => setFailure(null)}>
               <Dropdown label="Parking facility" value={facilityId} onChange={setFacilityId} disabled={busy}
                 options={facilities.map((item) => ({ value: item.id, label: item.name }))} />
               <div className="search-rate"><span>Hourly rate</span><output>{price.format(facility.hourly_rate)} / hour</output></div>
-              <label>Arrival · PKT<input type="datetime-local" value={arrival} required disabled={busy}
-                onChange={(event) => setArrival(event.target.value)} /></label>
-              <label>Departure · PKT<input type="datetime-local" value={departure} required disabled={busy}
-                onChange={(event) => setDeparture(event.target.value)} /></label>
+              <label>Arrival · PKT<input ref={arrivalField} type="datetime-local" value={arrival} required disabled={busy}
+                aria-invalid={failure?.target === "arrival" || undefined}
+                aria-describedby={failure?.target === "arrival" ? "arrival-error" : undefined}
+                onChange={(event) => setArrival(event.target.value)} />
+                {failure?.target === "arrival" && <span className="field-error" id="arrival-error">{failure.text}</span>}
+              </label>
+              <label>Departure · PKT<input ref={departureField} type="datetime-local" value={departure} required disabled={busy}
+                aria-invalid={failure?.target === "departure" || undefined}
+                aria-describedby={failure?.target === "departure" ? "departure-error" : undefined}
+                onChange={(event) => setDeparture(event.target.value)} />
+                {failure?.target === "departure" && <span className="field-error" id="departure-error">{failure.text}</span>}
+              </label>
+              {failure?.target === "search" && !failure.mobile &&
+                <p className="driver-feedback error search-error" role="alert">{failure.text}</p>}
               <button className="primary" disabled={busy}>{busy ? "Checking availability…" : "Search available spaces →"}</button>
             </form>
           </section>
@@ -263,10 +374,12 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
         {vehicles.length ? <ul className="directory-list driver-section">{vehicles.map((vehicle) =>
           <li key={vehicle.id} className="vehicle-row hover-card">
             <WorkspaceIcon name="vehicles" /><strong>{vehicle.plate}</strong>
+            <button type="button" disabled={busy} aria-label={"Delete vehicle " + vehicle.plate}
+              onClick={() => deleteVehicle(vehicle)}>Delete</button>
           </li>)}</ul> : <p>No vehicles saved yet.</p>}
       </>}
       {page === "bookings" && <>
-        <PageHeading title="My bookings" />
+        <PageHeading title="My bookings" headingRef={bookingsHeading} />
         {bookings.length ? <ul className="directory-list driver-bookings">{bookings.map((booking) =>
           <li key={booking.id} className="hover-card">
             <div>

@@ -31,6 +31,13 @@ export default function DriverProfile({ username, access, strikes, resumesAt, bu
         <h2>No-show strikes</h2>
         {access ? <>
           <p className="strike-count"><strong>{strikes.length}</strong> active · Suspension at {access.strike_limit}</p>
+          <div className={"strike-progress" + (resumesAt ? " suspended" : "")} role="meter"
+            aria-label="No-show strikes" aria-valuemin={0} aria-valuemax={access.strike_limit}
+            aria-valuenow={Math.min(strikes.length, access.strike_limit)}
+            aria-valuetext={strikes.length + " active, suspension at " + access.strike_limit}>
+            {Array.from({ length: access.strike_limit }, (_, index) =>
+              <span key={index} className={index < strikes.length ? "filled" : undefined} aria-hidden="true" />)}
+          </div>
           <p>Each strike expires 20 days after the missed check-in deadline.</p>
           {resumesAt && <p className="driver-feedback error" role="status">
             New bookings are suspended until {visitTime(resumesAt)} PKT.

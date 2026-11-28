@@ -1,6 +1,6 @@
 import Dropdown from "./Dropdown.jsx";
 import FacilitySales from "./FacilitySales.jsx";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import FacilityReport from "./FacilityReport.jsx";
 import FacilityOperators from "./FacilityOperators.jsx";
 import { PageHeading, WorkspaceIcon, WorkspaceShell } from "./WorkspaceShell.jsx";
@@ -55,6 +55,8 @@ function LayoutEditor({ facility, busy, onSaveLayout, onAddClosure, onRemoveClos
   const [selected, setSelected] = useState(null);
   const [dragging, setDragging] = useState(null);
   const [dirty, setDirty] = useState(false);
+  const [fit, setFit] = useState(false);
+  const layoutScroll = useRef(null);
   const tiles = new Map(buildings.map((block) => [cellKey(block), { kind: buildingTool, cell: block }]));
   for (const spot of spots) tiles.set(cellKey(spot), { kind: spotTool, cell: spot });
   const selectedTile = tiles.get(selected);
@@ -125,12 +127,19 @@ function LayoutEditor({ facility, busy, onSaveLayout, onAddClosure, onRemoveClos
       </button>
       <button type="button" disabled={busy} aria-pressed={tool === "clear"}
         onClick={() => setTool("clear")}>Clear</button>
+      <button type="button" aria-pressed={fit} onClick={() => {
+        if (!fit) layoutScroll.current.scrollLeft = 0;
+        setFit(!fit);
+      }}>Fit to screen</button>
       <button type="button" className="primary save-layout"
         disabled={!dirty || busy} onClick={() => onSaveLayout({ spots, buildings })}>Save layout</button>
     </div>
-    <div className="layout-scroll">
-      <div className="layout-grid" style={{ gridTemplateColumns: "repeat(" + columns + ", var(--cell-size))" }}
-        aria-label="Parking layout">
+    <p className="layout-pan-hint" id="layout-pan-hint">{fit
+      ? "Turn off Fit to screen for larger cells."
+      : "Swipe or scroll within the grid to see more rows and columns."}</p>
+    <div className="layout-scroll" ref={layoutScroll} tabIndex={0} role="region" aria-label="Parking layout"
+      aria-describedby="layout-pan-hint">
+      <div className={"layout-grid" + (fit ? " fitted" : "")} style={{ "--layout-columns": columns }}>
         {Array.from({ length: rows * columns }, (_, index) => {
           const cell = { grid_row: Math.floor(index / columns), grid_column: index % columns };
           const key = cellKey(cell);

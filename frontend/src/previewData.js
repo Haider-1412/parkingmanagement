@@ -88,6 +88,17 @@ export function createPreviewData() {
     return { ...booking, status, can_cancel: status === "confirmed" && Date.parse(booking.starts_at) > Date.now() };
   }
 
+  function driverProfile() {
+    const strikes = bookings.filter((booking) => effectiveStatus(booking, Date.now()) === "no_show")
+      .map((booking) => {
+        const issued = Math.min(Date.parse(booking.starts_at) + 15 * 60000, Date.parse(booking.ends_at));
+        return { reference: booking.reference, issued_at: new Date(issued).toISOString(),
+          expires_at: new Date(issued + 20 * 86400000).toISOString() };
+      });
+    strikes.sort((left, right) => left.issued_at.localeCompare(right.issued_at));
+    return { strike_limit: 4, strikes };
+  }
+
   async function request(path, method = "GET", body) {
     const url = new URL(path, location.origin);
     const [, , role, collection, id, action, item, detail] = url.pathname.split("/");
@@ -117,12 +128,24 @@ export function createPreviewData() {
       vehicles.push(vehicle);
       return vehicle;
     }
+    if (role === "driver" && collection === "vehicles" && method === "DELETE") {
+      const index = vehicles.findIndex((vehicle) => vehicle.id === id);
+      if (index === -1) throw new Error("Vehicle not found");
+      vehicles.splice(index, 1);
+      return null;
+    }
+    if (role === "driver" && collection === "profile" && method === "GET") return driverProfile();
     if (collection === "bookings") {
       if (role === "driver" && method === "POST" && !id) {
         const owner = facilities.find((record) => record.spots.some((spot) => spot.id === body.slot_id));
         const spot = owner?.spots.find((record) => record.id === body.slot_id);
         const vehicle = vehicles.find((record) => record.id === body.vehicle_id);
         if (!spot || !vehicle) throw new Error("Select a space and vehicle.");
+        if (bookings.some((entry) => entry.slot_id === spot.id &&
+          ["confirmed", "checked_in"].includes(effectiveStatus(entry, Date.now())) && overlaps(entry, body))) {
+          throw Object.assign(new Error("Booking not confirmed. This space was just taken. Choose another space."),
+            { status: 409, code: "space_taken" });
+        }
         return bookingResponse(addBooking(owner, spot, vehicle,
           { starts_at: body.starts_at, ends_at: body.ends_at }, "confirmed"));
       }
@@ -205,6 +228,9 @@ export function createPreviewData() {
     request,
     visit,
     facilities: () => facilities.map(snapshot),
-    driver: () => ({ facilities: facilities.map(snapshot), vehicles: [...vehicles], bookings: bookings.map(bookingResponse) }),
+    driver: () => ({
+      facilities: facilities.map(snapshot), vehicles: [...vehicles], bookings: bookings.map(bookingResponse),
+      profile: driverProfile(),
+    }),
   };
 }

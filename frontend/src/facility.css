@@ -16,7 +16,27 @@
 .swatch { display: inline-block; width: .75rem; height: .75rem; margin-right: .2rem; vertical-align: -.08rem; border-radius: .2rem; }
 .parking-swatch { border: 1px solid var(--open-border); background: var(--open-bg); }
 .building-swatch { background: #505e70; }
-.layout-grid { display: grid; gap: .38rem; width: max-content; }
+.layout-pan-hint { margin: 0 0 .45rem; font-size: .85rem; }
+.layout-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--layout-columns), var(--cell-size));
+  gap: .38rem;
+  width: max-content;
+}
+.layout-grid.fitted {
+  grid-template-columns: repeat(var(--layout-columns), minmax(0, 1fr));
+  width: 100%;
+  gap: min(.38rem, 1vw);
+}
+.facility-workspace .layout-grid.fitted .grid-cell {
+  aspect-ratio: 1;
+  height: auto;
+  max-height: var(--cell-size);
+  padding: 0;
+  overflow: hidden;
+  font-size: .65rem;
+}
+.layout-grid.fitted .grid-cell small { display: none; }
 .facility-workspace .grid-cell {
   height: var(--cell-size);
   border: 1px dashed #c5b9a9;
@@ -28,6 +48,9 @@
 .closures { padding-top: .9rem; border-top: 1px solid var(--line); }
 .closures p { margin-top: .6rem; }
 .editor-properties .closure-form { align-items: stretch; flex-direction: column; }
+.report-range { align-items: start; }
+.report-range button { margin-top: calc(.75rem * 1.5 + .35rem); }
+.report-to { max-width: 12rem; }
 .facility-form fieldset { display: flex; flex-wrap: wrap; gap: .5rem; border: 0; padding: 0; margin: 0; }
 .facility-form fieldset small { flex-basis: 100%; color: var(--muted); }
 .facility-list { padding: 0; list-style: none; }

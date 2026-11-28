@@ -27,7 +27,7 @@ export function Brand() {
   </div>;
 }
 
-export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, transitionKey, children }) {
+export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, transitionKey, floatingAction, children }) {
   const previewControls = useContext(PreviewControls);
   const content = useRef(null);
   const collapseTimer = useRef(null);
@@ -64,6 +64,7 @@ export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, trans
         </button>)}
       </nav>
     </aside>
+    {floatingAction}
     <div className="workspace-body">
       <header className="app-header">
         <div className="header-content">
@@ -77,9 +78,9 @@ export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, trans
   </div>;
 }
 
-export function PageHeading({ title, action }) {
+export function PageHeading({ title, action, headingRef }) {
   return <div className="page-heading">
-    <h1>{title}</h1>
+    <h1 ref={headingRef} tabIndex={headingRef ? -1 : undefined}>{title}</h1>
     {action}
   </div>;
 }

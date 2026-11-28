@@ -8,7 +8,7 @@ from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, StringConstraints
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
@@ -141,7 +141,9 @@ def update_driver_profile(payload: UsernameInput, profile: CurrentProfile, db: D
 @app.get("/api/driver")
 def driver(profile: CurrentProfile, db: Database):
     require_role(profile, "driver")
-    vehicles = db.scalars(select(Vehicle).where(Vehicle.owner_id == profile.id).order_by(Vehicle.plate))
+    vehicles = db.scalars(select(Vehicle).where(
+        Vehicle.owner_id == profile.id, Vehicle.removed_at.is_(None),
+    ).order_by(Vehicle.plate))
     return {
         "facilities": facilities_for(db),
         "vehicles": [{"id": vehicle.id, "plate": vehicle.plate} for vehicle in vehicles],
@@ -155,11 +157,25 @@ def register_vehicle(payload: VehicleInput, profile: CurrentProfile, db: Databas
     require_role(profile, "driver")
     vehicle = db.scalar(insert(Vehicle).values(
         owner_id=profile.id, plate=payload.plate,
-    ).on_conflict_do_nothing(constraint="vehicle_owner_plate").returning(Vehicle))
+    ).on_conflict_do_update(
+        constraint="vehicle_owner_plate", set_={"removed_at": None}, where=Vehicle.removed_at.is_not(None),
+    ).returning(Vehicle))
     if vehicle is None:
         raise HTTPException(409, "This vehicle is already registered")
     db.commit()
     return {"id": vehicle.id, "plate": vehicle.plate}
+
+
+@app.delete("/api/driver/vehicles/{vehicle_id}", status_code=204)
+def remove_vehicle(vehicle_id: UUID, profile: CurrentProfile, db: Database):
+    require_role(profile, "driver")
+    vehicle = db.scalar(update(Vehicle).where(
+        Vehicle.id == vehicle_id, Vehicle.owner_id == profile.id,
+    ).values(removed_at=datetime.now(timezone.utc)).returning(Vehicle.id))
+    if vehicle is None:
+        raise HTTPException(404, "Vehicle not found")
+    db.commit()
+    return Response(status_code=204)
 
 
 @app.post("/api/driver/facilities/{facility_id}/availability")

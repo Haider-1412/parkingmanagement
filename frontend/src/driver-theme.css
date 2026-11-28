@@ -25,6 +25,10 @@
 
 .driver-strikes .strike-count { color: var(--ink); }
 .strike-count strong { font-size: 1.7rem; margin-right: .2rem; }
+.strike-progress { display: flex; gap: .35rem; margin-block: .45rem .75rem; }
+.strike-progress span { flex: 1; height: .55rem; border: 1px solid var(--line); border-radius: .2rem; background: var(--surface); }
+.strike-progress .filled { border-color: #a87930; background: var(--ochre); }
+.strike-progress.suspended .filled { border-color: var(--closed-text); background: var(--closed-text); }
 .driver-strikes ul { list-style: none; padding: 0; margin: 1rem 0 0; }
 .driver-strikes li { display: grid; gap: .12rem; padding: .65rem 0; border-top: 1px solid var(--line); }
 .driver-strikes li span { color: var(--muted); font-size: .83rem; }

@@ -178,7 +178,7 @@ export default function OperatorWorkspace({ facilities, request, onSignOut }) {
           setError("");
           setFormVersion((version) => version + 1);
         }}>Clear</button>
-        {bookings && <span>{visibleBookings.length} matching reservations</span>}
+        {bookings && <span>{visibleBookings.length} matching {visibleBookings.length === 1 ? "reservation" : "reservations"}</span>}
       </div>
     </form>
     {notice && <p className="driver-feedback" role="status">{notice}</p>}

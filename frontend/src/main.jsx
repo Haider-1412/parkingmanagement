@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createClient } from "@supabase/supabase-js";
 import Dropdown from "./Dropdown.jsx";
@@ -33,9 +33,11 @@ async function api(path, token, signal, method = "GET", body) {
   }
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    const detail = typeof payload?.detail === "string" ? payload.detail : payload?.detail?.[0]?.msg;
+    const detail = typeof payload?.detail === "string"
+      ? payload.detail : payload?.detail?.message || payload?.detail?.[0]?.msg;
     const error = new Error(detail || "Parking request failed (" + response.status + ").");
     error.status = response.status;
+    error.code = payload?.detail?.code;
     throw error;
   }
   return response.status === 204 ? null : response.json();
@@ -46,6 +48,31 @@ function SignIn() {
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const panel = useRef(null);
+  const formContent = useRef(null);
+  const previousHeight = useRef(null);
+
+  useLayoutEffect(() => {
+    const start = previousHeight.current;
+    previousHeight.current = null;
+    if (start === null || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const end = panel.current.getBoundingClientRect().height;
+    const timing = { duration: 260, easing: "cubic-bezier(.2,.75,.25,1)" };
+    const resize = panel.current.animate([{ height: start + "px" }, { height: end + "px" }], timing);
+    const enter = formContent.current.animate([
+      { opacity: .55, transform: "translateY(6px)" },
+      { opacity: 1, transform: "translateY(0)" },
+    ], timing);
+    return () => { resize.cancel(); enter.cancel(); };
+  }, [registering]);
+
+  function switchMode(next) {
+    if (next === registering) return;
+    previousHeight.current = panel.current.getBoundingClientRect().height;
+    setRegistering(next);
+    setMessage("");
+  }
 
   async function submit(event) {
     event.preventDefault();
@@ -79,35 +106,33 @@ function SignIn() {
           <span /><span /><span /><span /><span /><span />
         </div>
       </aside>
-      <section className="auth-panel">
+      <section className="auth-panel" ref={panel}>
         <div className="auth-switch" aria-label="Account action">
-          <button type="button" aria-pressed={!registering} disabled={busy} onClick={() => {
-            setRegistering(false);
-            setMessage("");
-          }}>Sign in</button>
-          <button type="button" aria-pressed={registering} disabled={busy} onClick={() => {
-            setRegistering(true);
-            setMessage("");
-          }}>Register</button>
+          <button type="button" aria-pressed={!registering} disabled={busy}
+            onClick={() => switchMode(false)}>Sign in</button>
+          <button type="button" aria-pressed={registering} disabled={busy}
+            onClick={() => switchMode(true)}>Register</button>
         </div>
-        <h1>{registering ? "Create your account" : "Sign in"}</h1>
-        <form onSubmit={submit}>
-          <p><label>Email <input type="email" name="email" autoComplete="email" required /></label></p>
-          <div className="password-field">
-            <label>Password <input type={showPassword ? "text" : "password"} name="password"
-              minLength={registering ? 8 : undefined}
-              autoComplete={registering ? "new-password" : "current-password"} required /></label>
-            <button type="button" aria-label={showPassword ? "Hide password" : "Show password"}
-              onClick={() => setShowPassword(!showPassword)}>{showPassword ? "Hide" : "Show"}</button>
-          </div>
-          {registering && <Dropdown label="Account type" name="role" disabled={busy} options={[
-            { value: "driver", label: "Driver" }, { value: "facility_manager", label: "Facility manager" },
-          ]} />}
-          <button className="primary auth-submit" disabled={busy}>
-            {busy ? "Please wait…" : registering ? "Create account" : "Sign in"}
-          </button>
-        </form>
-        {message && <p role="status">{message}</p>}
+        <div ref={formContent} className="auth-form-content">
+          <h1>{registering ? "Create your account" : "Sign in"}</h1>
+          <form onSubmit={submit}>
+            <p><label>Email <input type="email" name="email" autoComplete="email" required /></label></p>
+            <div className="password-field">
+              <label>Password <input type={showPassword ? "text" : "password"} name="password"
+                minLength={registering ? 8 : undefined}
+                autoComplete={registering ? "new-password" : "current-password"} required /></label>
+              <button type="button" aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowPassword(!showPassword)}>{showPassword ? "Hide" : "Show"}</button>
+            </div>
+            {registering && <Dropdown label="Account type" name="role" disabled={busy} options={[
+              { value: "driver", label: "Driver" }, { value: "facility_manager", label: "Facility manager" },
+            ]} />}
+            <button className="primary auth-submit" disabled={busy}>
+              {busy ? "Please wait…" : registering ? "Create account" : "Sign in"}
+            </button>
+          </form>
+          {message && <p role="status">{message}</p>}
+        </div>
       </section>
     </main>
   );

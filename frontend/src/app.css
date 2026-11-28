@@ -61,6 +61,13 @@ label :is(input, select), .search-rate output {
   color: var(--ink);
 }
 h1, h2, h3, p { margin: 0; }
+.field-error {
+  color: var(--closed-text);
+  font-size: .85rem;
+  font-weight: 650;
+  letter-spacing: normal;
+  text-transform: none;
+}
 h2 { font-size: 1.1rem; line-height: 1.35; }
 h3 { font-size: 1rem; }
 p + p { margin-top: .4rem; }
@@ -239,7 +246,7 @@ p + p { margin-top: .4rem; }
 }
 .auth-panel h1 { margin: 1.25rem 0 1.4rem; }
 .auth-panel form p, .password-field { margin-bottom: 1rem; }
-.auth-panel > p { margin-top: 1rem; }
+.auth-form-content > p { margin-top: 1rem; }
 .auth-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
