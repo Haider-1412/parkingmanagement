@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import Dropdown from "./Dropdown.jsx";
+import DriverBookingCard from "./DriverBookingCard.jsx";
 import DriverProfile from "./DriverProfile.jsx";
-import { Receipt, visitTime } from "./VisitDetails.jsx";
+import { visitTime } from "./VisitDetails.jsx";
 import { PageHeading, WorkspaceIcon, WorkspaceShell } from "./WorkspaceShell.jsx";
 import { useLiveData } from "./useLiveData.js";
 import "./driver.css";
@@ -59,6 +60,7 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
   const [page, setPage] = useState("find");
   const [vehicles, setVehicles] = useState(data.vehicles);
   const [bookings, setBookings] = useState(data.bookings);
+  const [openedBookingId, setOpenedBookingId] = useState(null);
   const [facilityId, setFacilityId] = useState(facilities[0]?.id || "");
   const [vehicleId, setVehicleId] = useState(vehicles[0]?.id || "");
   const [arrival, setArrival] = useState(initialVisit?.arrival || "");
@@ -128,6 +130,7 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
     if (busy || next === page) return;
     resetMap();
     setMessage("");
+    setOpenedBookingId(null);
     setPage(next);
   }
 
@@ -216,6 +219,7 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
 
   function viewBooking() {
     focusBookings.current = true;
+    setOpenedBookingId(confirmed.id);
     setConfirmed(null);
     setLayout(null);
     setSelected(null);
@@ -229,11 +233,10 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
   }
 
   function cancel(booking) {
-    perform(async () => {
+    return perform(async () => {
       const updated = await request(api + "/bookings/" + booking.id + "/cancel", "POST");
       setBookings((previous) => previous.map((item) => item.id === updated.id ? updated : item));
-      setMessage("Booking " + booking.reference + " cancelled.");
-    });
+    }, booking.id);
   }
 
   function saveUsername(username) {
@@ -380,18 +383,10 @@ export default function DriverWorkspace({ data, request, onSignOut, initialVisit
       </>}
       {page === "bookings" && <>
         <PageHeading title="My bookings" headingRef={bookingsHeading} />
-        {bookings.length ? <ul className="directory-list driver-bookings">{bookings.map((booking) =>
-          <li key={booking.id} className="hover-card">
-            <div>
-              <strong>{booking.facility} · {booking.spot}</strong>
-              <p>{visitTime(booking.starts_at)} – {visitTime(booking.ends_at)} PKT</p>
-              <p>{booking.reference} · {booking.plate}</p>
-              <span className={"status-badge " + booking.status}>{booking.status.replaceAll("_", " ")}</span>
-              <Receipt booking={booking} />
-            </div>
-            {booking.can_cancel && new Date(booking.starts_at) > new Date() &&
-              <button type="button" disabled={busy} onClick={() => cancel(booking)}>Cancel booking</button>}
-          </li>)}</ul> : <div className="panel"><p>No bookings yet.</p></div>}
+        {bookings.length ? <ul className="driver-bookings">{bookings.map((booking) =>
+          <DriverBookingCard key={booking.id} booking={booking} initiallyExpanded={openedBookingId === booking.id}
+            busy={busy} cancelError={!popup && failure?.target === booking.id ? failure.text : null}
+            onCancel={cancel} onDismissError={() => setFailure(null)} />)}</ul> : <div className="panel"><p>No bookings yet.</p></div>}
       </>}
       {page === "profile" && <>
         {profileError && <p className="driver-feedback error" role="alert">{profileError}</p>}
