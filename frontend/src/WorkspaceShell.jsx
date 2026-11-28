@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef } from "react";
 
 export const PreviewControls = createContext(null);
 
@@ -30,19 +30,6 @@ export function Brand() {
 export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, transitionKey, floatingAction, children }) {
   const previewControls = useContext(PreviewControls);
   const content = useRef(null);
-  const collapseTimer = useRef(null);
-  const [collapsed, setCollapsed] = useState(true);
-
-  function selectPage(id) {
-    if (id === page) return;
-    onNavigate(id);
-    setCollapsed(false);
-    clearTimeout(collapseTimer.current);
-    collapseTimer.current = setTimeout(() => setCollapsed(true), 3000);
-  }
-
-  useEffect(() => () => clearTimeout(collapseTimer.current), []);
-
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const animation = content.current.animate([
@@ -52,19 +39,19 @@ export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, trans
     return () => animation.cancel();
   }, [page, transitionKey]);
 
-  return <div className="workspace" data-nav-collapsed={collapsed}>
+  return <div className="workspace">
     <aside className="workspace-sidebar">
       <Brand />
       <nav aria-label={role + " navigation"} className="workspace-nav">
-        {items.map(({ id, label }) => <button key={id} type="button"
-          aria-label={label} title={collapsed ? label : undefined}
-          aria-current={page === id ? "page" : undefined} onClick={() => selectPage(id)}>
+        {items.map(({ id, label, shortLabel }) => <button key={id} type="button"
+          aria-label={label} title={label}
+          aria-current={page === id ? "page" : undefined} onClick={() => onNavigate(id)}>
           <span className="nav-icon" aria-hidden="true"><WorkspaceIcon name={id} /></span>
           <span className="nav-label" aria-hidden="true">{label}</span>
+          {shortLabel && <span className="nav-label-short" aria-hidden="true">{shortLabel}</span>}
         </button>)}
       </nav>
     </aside>
-    {floatingAction}
     <div className="workspace-body">
       <header className="app-header">
         <div className="header-content">
@@ -75,6 +62,7 @@ export function WorkspaceShell({ role, items, page, onNavigate, onSignOut, trans
       </header>
       <main className="workspace-content" ref={content}>{children}</main>
     </div>
+    {floatingAction}
   </div>;
 }
 

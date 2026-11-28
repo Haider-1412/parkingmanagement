@@ -5,7 +5,7 @@
 .workspace .facility-banner::before { content: none; }
 .workspace .facility-pin, .workspace .vehicle-row svg { color: var(--ink); background: var(--ochre-light); border-radius: .45rem; }
 .workspace .availability-count { color: var(--ink); background: #dfd8ca; }
-.workspace .selected-space-token { color: var(--ink); background: var(--ochre-light); }
+.workspace .selected-space-token { max-width: 100%; color: var(--ink); background: var(--ochre-light); white-space: normal; }
 .workspace .driver-map-scroll { border-radius: .65rem; }
 .workspace .driver-map .space-cell { border-radius: .35rem; }
 .workspace .driver-map .space-cell:hover:not(:disabled) { translate: none; border-color: #9a7137; }

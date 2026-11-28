@@ -6,6 +6,7 @@
   flex-wrap: wrap;
 }
 .facility-actions { align-items: center; }
+.facility-form > label, .closure-form > label { flex: 1 1 12rem; }
 .manager-facilities li { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .7rem; }
 .manager-facilities { margin-top: .75rem; }
 .manager-facility-picker { max-width: 22rem; margin-bottom: 1rem; }
@@ -48,13 +49,14 @@
 .closures { padding-top: .9rem; border-top: 1px solid var(--line); }
 .closures p { margin-top: .6rem; }
 .editor-properties .closure-form { align-items: stretch; flex-direction: column; }
-.report-range { align-items: start; }
+.editor-properties .closure-form > label { flex: none; }
+.report-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; align-items: start; max-width: 42rem; }
 .report-range button { margin-top: calc(.75rem * 1.5 + .35rem); }
-.report-to { max-width: 12rem; }
-.facility-form fieldset { display: flex; flex-wrap: wrap; gap: .5rem; border: 0; padding: 0; margin: 0; }
+.facility-form fieldset { display: flex; flex-wrap: wrap; gap: .5rem; border: 0; padding: 0; margin: 0; min-width: 0; }
 .facility-form fieldset small { flex-basis: 100%; color: var(--muted); }
 .facility-list { padding: 0; list-style: none; }
 .facility-list li { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; padding: .55rem 0; border-top: 1px solid var(--line); }
+.facility-list li > span, .facility-identity > div { min-width: 0; overflow-wrap: anywhere; }
 .operator-help { margin: .65rem 0; color: var(--muted); }
 .report-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .5rem; }
 .report-totals div { padding: .85rem; border: 1px solid var(--line); border-radius: .6rem; background: var(--surface); }
@@ -67,10 +69,16 @@
 .facility-identity > span { display: grid; place-items: center; flex: none; width: 2.55rem; height: 2.55rem; border-radius: .8rem; color: var(--ink); background: var(--ochre-light); }
 .layout-toolbar { padding: .45rem; border: 1px solid var(--line); border-radius: .9rem; background: var(--surface); }
 .editor-properties { border-top: 3px solid var(--ochre); }
-@media (max-width: 520px) {
+@container workspace (max-width: 31rem) {
   .manager-facilities li { padding-block: .85rem; }
   .facility-actions { width: 100%; }
   .facility-actions strong { flex: 1 0 100%; }
   .layout-toolbar { gap: .35rem; }
   .layout-toolbar button { padding-inline: .48rem; }
+  .report-range { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-range button { grid-column: 1 / -1; justify-self: start; margin-top: 0; }
+}
+@container workspace (max-width: 22rem) {
+  .report-range { grid-template-columns: minmax(0, 1fr); }
+  .report-range button { justify-self: stretch; }
 }

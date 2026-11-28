@@ -33,7 +33,7 @@ export default function FacilityReport({ path, request }) {
     <h2>Date range</h2>
     <form className="closure-form report-range" onSubmit={load} onChange={() => setRangeError(0)}>
       <label>From (PKT)<input name="first" type="date" defaultValue={current} required /></label>
-      <label className="report-to">To (PKT)<input ref={toField} name="last" type="date" defaultValue={current} required
+      <label>To (PKT)<input ref={toField} name="last" type="date" defaultValue={current} required
         aria-invalid={!!rangeError || undefined} aria-describedby={rangeError ? "report-range-error" : undefined} />
         {!!rangeError && <span className="field-error" id="report-range-error">To must be on or after From.</span>}
       </label>

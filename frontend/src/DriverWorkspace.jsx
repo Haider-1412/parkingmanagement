@@ -24,28 +24,35 @@ const states = [
 ];
 
 function AvailabilityMap({ layout, selected, onSelect, busy }) {
+  const [fit, setFit] = useState(true);
+  const mapScroll = useRef(null);
   const cells = [...layout.buildings, ...layout.spots];
   const columns = Math.max(1, ...cells.map((cell) => cell.grid_column + 1));
   const rows = Math.max(1, ...cells.map((cell) => cell.grid_row + 1));
   return <>
+    <div className="driver-map-tools">
+      <button type="button" aria-pressed={fit} onClick={() => {
+        if (!fit) mapScroll.current.scrollTo(0, 0);
+        setFit(!fit);
+      }}>Fit to screen</button>
+      <span>{fit ? "Turn off for larger spaces." : "Swipe or scroll to see more of the map."}</span>
+    </div>
     <ul className="map-legend" aria-label="Space states">{states.map(([key, label]) =>
       <li className={key} key={key}>{label}</li>)}</ul>
-    <div className="driver-map-scroll" tabIndex={0} role="region" aria-label="Scrollable parking layout">
-      <div className="driver-map" style={{
-        gridTemplateColumns: "repeat(" + columns + ", var(--map-cell))",
-        gridTemplateRows: "repeat(" + rows + ", var(--map-cell))",
-      }}>
+    <div ref={mapScroll} className={"driver-map-scroll" + (fit ? " fitted" : "")}
+      tabIndex={0} role="region" aria-label="Parking layout">
+      <div className="driver-map" style={{ "--map-columns": columns, "--map-rows": rows }}>
         {Array.from({ length: rows * columns }, (_, index) => <span key={index}
           className="driver-lane" aria-hidden="true"
           style={{ gridRow: Math.floor(index / columns) + 1, gridColumn: index % columns + 1 }} />)}
         {layout.buildings.map((cell) => <span key={cell.grid_row + ":" + cell.grid_column}
-          className="driver-building" style={position(cell)} title="Building">BLDG</span>)}
+          className="driver-building" style={position(cell)} title="Building"><strong>BLDG</strong></span>)}
         {layout.spots.map((spot) => {
           const state = spot.available ? "open" : spot.status === "closed" ? "closed"
             : spot.status === "occupied" ? "in-use" : spot.status === "reserved" ? "reserved" : "unavailable";
           const label = states.find(([key]) => key === state)[1];
           return <button key={spot.id} type="button" style={position(spot)} className={"space-cell " + state}
-            aria-label={spot.label + ", " + label} aria-pressed={selected === spot.id}
+            aria-label={spot.label + ", " + label} title={spot.label + ", " + label} aria-pressed={selected === spot.id}
             disabled={!spot.available || busy} onClick={() => onSelect(spot.id)}>
             <strong>{spot.label}</strong><small>{label}</small>
           </button>;

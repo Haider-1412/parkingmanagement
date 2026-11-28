@@ -9,9 +9,9 @@ import "./facility.css";
 const pages = [
   { id: "home", label: "Dashboard" },
   { id: "facilities", label: "Facilities" },
-  { id: "layout", label: "Layout editor" },
+  { id: "layout", label: "Layout editor", shortLabel: "Layout" },
   { id: "operators", label: "Operators" },
-  { id: "report", label: "Facility report" },
+  { id: "report", label: "Facility report", shortLabel: "Report" },
 ];
 
 const facilitiesPath = "/api/facility-manager/facilities";

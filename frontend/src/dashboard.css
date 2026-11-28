@@ -9,7 +9,7 @@
 .operator-summary { margin: 0 0 1rem; }
 .operator-summary .dashboard-metric { padding: .85rem 1rem; }
 .operator-summary .dashboard-metric > strong { margin-bottom: 0; font-size: clamp(1.2rem, 3.5vw, 1.75rem); }
-.sales-heading { display: flex; justify-content: space-between; align-items: start; gap: .6rem; }
+.sales-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: .6rem; }
 .sales-heading p, .sales-list small, .sales-axis, .dashboard-updated { color: var(--muted); font-size: .78rem; }
 .sales-heading > strong { color: var(--ink); text-align: right; }
 .sales-bars {
@@ -28,11 +28,11 @@
 .sales-list ul { list-style: none; margin: .65rem 0 0; padding: 0; max-height: 17rem; overflow: auto; }
 .sales-list li { display: flex; justify-content: space-between; gap: .65rem; padding: .65rem 0; border-top: 1px solid var(--line); font-size: .86rem; }
 .sales-list li > div:last-child { text-align: right; }
+.sales-list li > div { min-width: 0; overflow-wrap: anywhere; }
 .sales-list small { display: block; }
 .dashboard-updated { margin-top: 1rem; }
 .queue-deadline { color: #80501f !important; font-weight: 750; }
-@media (max-width: 950px) { .dashboard-detail { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 390px) { .operator-summary { gap: .4rem; } .operator-summary .dashboard-metric { padding: .6rem; } }
+@container workspace (max-width: 53rem) { .dashboard-detail { grid-template-columns: minmax(0, 1fr); } }
 .dashboard-metric { position: relative; text-align: left; }
 .dashboard-metric .metric-label { display: block; color: var(--muted); font-size: .82rem; font-weight: 650; }
 .dashboard-metric .metric-icon {
@@ -65,9 +65,10 @@
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .metric-filter:hover .metric-arrow { translate: 2px -2px; }
 }
-@media (max-width: 520px) {
-  .operator-summary .metric-label { font-size: .71rem; line-height: 1.3; }
-  .operator-summary .dashboard-metric > strong { font-size: clamp(.94rem, 4.2vw, 1.3rem); overflow-wrap: anywhere; }
+@container workspace (max-width: 29rem) {
+  .operator-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+  .operator-summary .metric-feature { grid-column: 1 / -1; }
+  .operator-summary .dashboard-metric > strong { overflow-wrap: anywhere; }
 }
 .facility-dashboard-empty .metric-icon { display: grid; place-items: center; width: 2.1rem; height: 2.1rem; border-radius: .5rem; background: var(--ochre-light); margin-bottom: .65rem; }
 .facility-dashboard-empty button { margin-top: .8rem; }
